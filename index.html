@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Nine — Premier League Last Man Standing</title>
+<style>
+:root{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:#17202a;background:#f5f7fb}
+*{box-sizing:border-box}body{margin:0}.wrap{max-width:920px;margin:auto;padding:28px 16px}
+.card{background:#fff;border:1px solid #dce3ea;border-radius:16px;padding:20px;margin:14px 0;box-shadow:0 3px 14px rgba(20,30,40,.05)}
+h1{margin:0 0 4px;font-size:30px}h2{margin-top:0}.muted{color:#667085}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+button,select{min-height:46px;border-radius:10px;border:1px solid #cbd5df;padding:10px 12px;font-size:15px}button{cursor:pointer;font-weight:800;background:#17202a;color:white;border:0;width:100%}.secondary{background:#eef1f5;color:#17202a}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid #e5e7eb}th{font-size:12px;color:#667085;text-transform:uppercase}
+.alive{color:#087f3d;font-weight:800}.out{color:#b42318;font-weight:800}.pick-row{display:grid;grid-template-columns:145px 1fr;gap:12px;align-items:center;margin:9px 0}
+.notice{padding:12px;border-radius:10px;background:#f0f6ff;border:1px solid #cfe0ff}.winner{font-size:24px;font-weight:900}
+.hidden{display:none!important}.player-button{text-align:left;background:#f7f9fb;color:#17202a;border:1px solid #d8e0e8;margin:6px 0}.player-button:hover{background:#edf3f8}
+.selected{outline:3px solid #17202a;background:#e9eef3}.small{font-size:13px}
+@media(max-width:560px){h1{font-size:25px}.card{padding:15px}.pick-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<h1>THE NINE</h1>
+<div class="muted">Premier League Last Man Standing · €20 entry · €180 pot</div>
+</header>
+
+<section id="setup" class="card hidden">
+<h2>Game setup</h2>
+<p class="muted">Enter the Supabase Publishable key for this game. It is stored only in this browser.</p>
+<input id="supabaseKeyInput" type="password" autocomplete="off" placeholder="sb_publishable_..." style="width:100%;min-height:46px;border-radius:10px;border:1px solid #cbd5df;padding:10px 12px;font-size:15px">
+<button id="saveSupabaseKey" style="margin-top:10px">Connect to THE NINE</button>
+<p id="setupMsg" class="muted" aria-live="polite"></p>
+</section>
+
+<section id="login" class="card hidden">
+<h2>Who are you?</h2>
+<p class="muted">Select your name. Player names are locked to the official game list.</p>
+<div id="playerChoices"></div>
+<input id="adminCode" class="hidden" type="password" aria-label="Admin code">
+<p id="loginMsg" class="muted" aria-live="polite"></p>
+</section>
+
+<section id="app" class="hidden">
+<div class="card">
+<div class="grid">
+<div><div class="muted">Current round</div><strong id="round">3</strong></div>
+<div><div class="muted">Players alive</div><strong id="alive">5</strong></div>
+<div><div class="muted">Prize pot</div><strong>€180</strong></div>
+<div><div class="muted">Game status</div><strong id="gameStatus">OPEN</strong></div>
+</div>
+</div>
+
+<section id="playerView" class="card">
+<h2 id="playerHeading">Round 3 selection</h2>
+<div id="myStatus"></div>
+<div id="pickArea"></div>
+<button id="savePick" style="margin-top:10px">Save Round 3 Selection</button>
+<p id="pickMsg" class="muted" aria-live="polite"></p>
+</section>
+
+<section class="card">
+<h2>Standings</h2>
+<div id="standings"></div>
+</section>
+
+<section id="adminView" class="card hidden">
+<h2>Administrator</h2>
+<p class="muted">Enter the actual result for every active player's selected team, then resolve the round.</p>
+<div id="adminResults"></div>
+<button id="resolve" style="margin-top:10px">Resolve Round</button>
+<p id="adminMsg" class="muted" aria-live="polite"></p>
+</section>
+
+<section class="card">
+<h2>Round history</h2>
+<div id="historyBody" class="muted">No completed rounds yet.</div>
+</section>
+</section>
+</div>
+
+<script>
+const PLAYERS=["DAMO","DAVE","GEORGE","JOYCEY","MARK","MAU","MURPH","RYAN","STEVE"];
+const TEAMS=["AFC Bournemouth","Arsenal","Aston Villa","Brentford","Brighton & Hove Albion","Chelsea","Coventry City","Crystal Palace","Everton","Fulham","Hull City","Ipswich Town","Leeds United","Liverpool","Manchester City","Manchester United","Newcastle United","Nottingham Forest","Sunderland","Tottenham Hotspur"];
+const SUPABASE_URL="https://dyhmelgjcmjkerqtvaaa.supabase.co";
+// Paste your Supabase Publishable/anon key between the quotes below.
+let SUPABASE_ANON_KEY=localStorage.getItem("theNineSupabaseKey")||"";
+const TABLE="game_state";
+let state=null, me=null, isAdmin=false;
+
+const $=id=>document.getElementById(id);
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+async function api(method="GET",body=null){
+ if(!SUPABASE_ANON_KEY) throw new Error("Enter the Supabase Publishable key in Game setup first.");
+ const headers={apikey:SUPABASE_ANON_KEY,Authorization:"Bearer "+SUPABASE_ANON_KEY,"Content-Type":"application/json"};
+ if(method==="GET"){
+   const r=await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.1&select=data`,{headers,cache:"no-store"});
+   const text=await r.text(); let j; try{j=text?JSON.parse(text):null}catch{throw new Error("Supabase returned a non-JSON response: "+text.slice(0,120));}
+   if(!r.ok) throw new Error(j?.message||j?.hint||j?.error_description||"Could not load game state.");
+   if(!j?.[0]?.data) throw new Error("Game state row not found in Supabase.");
+   return j[0].data;
+ }
+ let state=await api("GET");
+ if(body.action==="pick"){
+   const p=state.players.find(x=>x.name.toLowerCase()===String(body.player).toLowerCase());
+   if(!p||!p.alive) throw new Error("Player is not active.");
+   if(!TEAMS.includes(body.team)) throw new Error("Invalid Premier League team.");
+   if(p.history.some(h=>h.team===body.team)) throw new Error("You have already used that team.");
+   state.currentPicks=state.currentPicks||{}; state.currentPicks[p.name]=body.team;
+ } else if(body.action==="resolve"){
+   const active=state.players.filter(p=>p.alive);
+   if(active.some(p=>!state.currentPicks?.[p.name])) throw new Error("Every active player must make a selection.");
+   const results=active.map(p=>({player:p.name,team:state.currentPicks[p.name],result:body.results?.[p.name]}));
+   if(results.some(x=>!["win","draw","loss"].includes(x.result))) throw new Error("Every active player needs a valid result.");
+   results.forEach(x=>{const p=state.players.find(p=>p.name===x.player);p.history.push({round:state.round,team:x.team,result:x.result});if(x.result!=="win")p.alive=false;});
+   state.history.push({round:state.round,results}); state.currentPicks={};
+   const alive=state.players.filter(p=>p.alive); if(alive.length===1) state.winner=alive[0].name; else if(!alive.length) throw new Error("All players were eliminated. The round was not saved."); else state.round++;
+ } else throw new Error("Unknown action.");
+ const r=await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.1`,{method:"PATCH",headers:{...headers,Prefer:"return=representation"},body:JSON.stringify({data:state})});
+ const text=await r.text(); let j; try{j=text?JSON.parse(text):null}catch{throw new Error("Supabase returned a non-JSON response: "+text.slice(0,120));}
+ if(!r.ok) throw new Error(j?.message||j?.hint||j?.error_description||"Could not save game state.");
+ return state;
+}
+function renderLogin(){
+ $("playerChoices").innerHTML=PLAYERS.map(n=>`<button type="button" class="player-button" data-name="${n}">${n}</button>`).join("")+
+ `<button type="button" id="adminButton" class="secondary" style="margin-top:12px">Administrator</button>`;
+ document.querySelectorAll("[data-name]").forEach(b=>b.addEventListener("click",()=>enterAs(b.dataset.name,false)));
+ $("adminButton").addEventListener("click",()=>{
+   const code=prompt("Enter administrator code");
+   if(code!==null) enterAs("ADMIN",code==="NINE180");
+ });
+}
+async function enterAs(name,admin){
+ try{
+   state=await api("GET");
+   if(admin){isAdmin=true;me="ADMIN"}
+   else{
+     const p=state.players.find(x=>x.name.toLowerCase()===name.toLowerCase());
+     if(!p){$("loginMsg").textContent="That player is not registered.";return}
+     me=p.name;
+   }
+   $("login").classList.add("hidden");$("app").classList.remove("hidden");
+   $("adminView").classList.toggle("hidden",!isAdmin);render();
+ }catch(e){$("loginMsg").textContent=e.message}
+}
+function render(){
+ $("round").textContent=state.round;
+ $("alive").textContent=state.players.filter(p=>p.alive).length;
+ $("gameStatus").textContent=state.winner?"FINISHED":"OPEN";
+ const sorted=[...state.players].sort((a,b)=>a.name.localeCompare(b.name));
+ $("standings").innerHTML="<table><thead><tr><th>Player</th><th>Status</th><th>Round 1</th><th>Round 2</th><th>Current</th></tr></thead><tbody>"+
+ sorted.map(p=>{
+   const h1=p.history.find(h=>h.round===1),h2=p.history.find(h=>h.round===2),cur=state.currentPicks?.[p.name]||"—";
+   return `<tr><td><strong>${esc(p.name)}</strong></td><td class="${p.alive?"alive":"out"}">${p.alive?"ALIVE":"ELIMINATED"}</td><td>${esc(h1?.team||"—")}</td><td>${esc(h2?.team||"—")}</td><td>${esc(cur)}</td></tr>`;
+ }).join("")+"</tbody></table>";
+
+ const p=state.players.find(x=>x.name.toLowerCase()===String(me).toLowerCase());
+ if(!p){return}
+ $("playerHeading").textContent=`Round ${state.round} selection`;
+ $("myStatus").innerHTML=`<p><strong>${esc(p.name)}</strong> · <span class="${p.alive?"alive":"out"}">${p.alive?"ALIVE":"ELIMINATED"}</span></p>`;
+ if(!p.alive){$("pickArea").innerHTML="<div class='notice'>You are eliminated from the game.</div>";$("savePick").classList.add("hidden");}
+ else if(state.winner){$("pickArea").innerHTML=`<div class='winner'>🏆 ${esc(state.winner)} wins €180</div>`;$("savePick").classList.add("hidden");}
+ else{
+   const used=p.history.map(h=>h.team);
+   const existing=state.currentPicks?.[p.name]||"";
+   $("pickArea").innerHTML=`<label for="team" class="small muted">Choose one team. Teams you have already used are removed.</label><select id="team" style="width:100%;margin-top:6px"><option value="">Select team</option>${TEAMS.filter(t=>!used.includes(t)).map(t=>`<option value="${esc(t)}" ${t===existing?"selected":""}>${esc(t)}</option>`).join("")}</select>`;
+   $("savePick").classList.remove("hidden");
+ }
+ if(isAdmin) renderAdmin();renderHistory();
+}
+function renderAdmin(){
+ const active=state.players.filter(p=>p.alive);
+ $("adminResults").innerHTML=active.map(p=>`<div class="pick-row"><div><strong>${esc(p.name)}</strong><br><span class="small muted">${esc(state.currentPicks?.[p.name]||"NO PICK")}</span></div><select data-player="${esc(p.name)}"><option value="win">Win — survive</option><option value="draw">Draw — eliminate</option><option value="loss">Loss — eliminate</option></select></div>`).join("")||"<div class='notice'>No active players.</div>";
+}
+function renderHistory(){
+ if(!state.history.length){$("historyBody").textContent="No completed rounds yet.";return}
+ $("historyBody").innerHTML=state.history.map(r=>`<div style="margin:10px 0"><strong>Round ${r.round}</strong><table><tbody>${r.results.map(x=>`<tr><td>${esc(x.player)}</td><td>${esc(x.team)}</td><td>${x.result==="win"?"✅ WIN":"❌ "+x.result.toUpperCase()}</td></tr>`).join("")}</tbody></table></div>`).join("");
+}
+$("savePick").addEventListener("click",async()=>{
+ const team=$("team")?.value;if(!team){$("pickMsg").textContent="Select a team first.";return}
+ try{state=await api("POST",{action:"pick",player:me,team});$("pickMsg").textContent=`${team} saved for Round ${state.round}.`;render()}catch(e){$("pickMsg").textContent=e.message}
+});
+$("resolve").addEventListener("click",async()=>{
+ const results={};document.querySelectorAll("#adminResults select").forEach(s=>results[s.dataset.player]=s.value);
+ try{state=await api("POST",{action:"resolve",results});$("adminMsg").textContent=state.winner?`🏆 ${state.winner} wins €180.`:`Round resolved. Round ${state.round} is now open.`;render()}catch(e){$("adminMsg").textContent=e.message}
+});
+function showSetupIfNeeded(){
+  if(!SUPABASE_ANON_KEY){$("setup").classList.remove("hidden");$("login").classList.add("hidden");}
+  else {$("setup").classList.add("hidden");$("login").classList.remove("hidden");renderLogin();}
+}
+$("saveSupabaseKey").addEventListener("click",async()=>{
+  const key=$("supabaseKeyInput").value.trim();
+  if(!key){$("setupMsg").textContent="Paste your Supabase Publishable key first.";return;}
+  SUPABASE_ANON_KEY=key;
+  try{
+    const test=await api("GET");
+    localStorage.setItem("theNineSupabaseKey",key);
+    $("setupMsg").textContent="Connected successfully.";
+    $("setup").classList.add("hidden");$("login").classList.remove("hidden");renderLogin();
+  }catch(e){SUPABASE_ANON_KEY="";$("setupMsg").textContent=e.message;}
+});
+showSetupIfNeeded();
+</script>
+</body>
+</html>
