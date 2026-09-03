@@ -162,7 +162,7 @@ function render(){
  else{
    const used=p.history.map(h=>h.team);
    const existing=state.currentPicks?.[p.name]||"";
-   $("pickArea").innerHTML=`<label for="team" class="small muted">Choose one team. Teams you have already used are removed. ONLY WHEN ALL PLAYERS STILL ALIVE HAVE SELECTED THEIR TEAMS WILL THE DISPLAY SHOW ALL SELECTIONS</label><select id="team" style="width:100%;margin-top:6px"><option value="">Select team</option>${TEAMS.filter(t=>!used.includes(t)).map(t=>`<option value="${esc(t)}" ${t===existing?"selected":""}>${esc(t)}</option>`).join("")}</select>`;
+   $("pickArea").innerHTML=`<label for="team" class="small muted">Choose one team. Teams you have already used are removed.<br><strong>ONLY WHEN ALL PLAYERS STILL ALIVE HAVE SELECTED THEIR TEAMS WILL THE DISPLAY SHOW ALL SELECTIONS</strong></label><select id="team" style="width:100%;margin-top:6px"><option value="">Select team</option>${TEAMS.filter(t=>!used.includes(t)).map(t=>`<option value="${esc(t)}" ${t===existing?"selected":""}>${esc(t)}</option>`).join("")}</select>`;
    $("savePick").classList.remove("hidden");
  }
  if(isAdmin) renderAdmin();renderHistory();
