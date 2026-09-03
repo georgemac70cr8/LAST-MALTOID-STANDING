@@ -17,7 +17,7 @@ button,select{min-height:48px;border-radius:10px;border:1px solid rgba(213,239,2
 table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid rgba(213,239,220,.11)}th{font-size:11px;color:#9caea4;letter-spacing:.09em;text-transform:uppercase}tr:last-child td{border-bottom:0}.alive{color:#c8f56a;font-weight:800}.out{color:#ff8c86;font-weight:800}.pick-row{display:grid;grid-template-columns:145px 1fr;gap:12px;align-items:center;margin:9px 0}
 .notice{padding:13px;border-radius:10px;background:rgba(132,186,255,.10);border:1px solid rgba(132,186,255,.23);color:#d9e9ff}.winner{font-family:"Space Grotesk",sans-serif;font-size:25px;font-weight:700;color:#c8f56a}
 .countdown-tiles{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.countdown-tile{background:rgba(200,245,106,.08);border:1px solid rgba(200,245,106,.25);border-radius:10px;padding:10px 14px;text-align:center;min-width:56px}.countdown-num{font-family:"Space Grotesk",sans-serif;font-size:22px;font-weight:700;color:#c8f56a;line-height:1}.countdown-label{font-size:10px;letter-spacing:.08em;color:#9caea4;text-transform:uppercase;margin-top:4px}.countdown-caption{text-align:center;font-size:11px;color:#7f8b85;margin:10px 0 0}
-.hidden{display:none!important}.modal-overlay{position:fixed;inset:0;background:rgba(4,10,9,.72);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}.modal-card{background:linear-gradient(135deg,rgba(28,43,41,.97),rgba(13,23,29,.98));border:1px solid rgba(213,239,220,.18);border-radius:16px;padding:20px;width:fit-content;max-width:90vw;box-shadow:0 20px 50px rgba(0,0,0,.5)}.modal-card p{margin:0 0 14px;color:#eff6f1;font-size:15px;line-height:1.5;max-width:300px}.modal-row{display:flex;gap:10px;align-items:stretch}#modalInput{width:220px}#modalOk{width:220px}.player-button{text-align:left;background:rgba(255,255,255,.045);color:#f5f7f2;border:1px solid rgba(213,239,220,.13);margin:6px 0;box-shadow:none}.player-button:hover{background:rgba(200,245,106,.13);border-color:rgba(200,245,106,.45)}.player-button.eliminated-player{color:#7f8b85;background:rgba(255,255,255,.025);border-color:rgba(213,239,220,.08);opacity:.62}.player-button.eliminated-player:hover{background:rgba(255,255,255,.045);border-color:rgba(213,239,220,.13)}.warning{color:#ff8c86;font-weight:800}.selected{outline:2px solid #c8f56a;background:rgba(200,245,106,.12)}.small{display:block;font-size:13px;line-height:1.55}
+.hidden{display:none!important}.modal-overlay{position:fixed;inset:0;background:rgba(4,10,9,.72);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}.modal-card{background:linear-gradient(135deg,rgba(28,43,41,.97),rgba(13,23,29,.98));border:1px solid rgba(213,239,220,.18);border-radius:16px;padding:20px;width:fit-content;max-width:90vw;box-shadow:0 20px 50px rgba(0,0,0,.5)}.modal-card p{margin:0 0 14px;color:#eff6f1;font-size:15px;line-height:1.5;max-width:300px}.modal-row{display:flex;gap:10px;align-items:stretch}#modalInput{width:220px;background:#10211f;color:#eff6f1}#modalOk{width:220px}.player-button{text-align:left;background:rgba(255,255,255,.045);color:#f5f7f2;border:1px solid rgba(213,239,220,.13);margin:6px 0;box-shadow:none}.player-button:hover{background:rgba(200,245,106,.13);border-color:rgba(200,245,106,.45)}.player-button.eliminated-player{color:#7f8b85;background:rgba(255,255,255,.025);border-color:rgba(213,239,220,.08);opacity:.62}.player-button.eliminated-player:hover{background:rgba(255,255,255,.045);border-color:rgba(213,239,220,.13)}.warning{color:#ff8c86;font-weight:800}.selected{outline:2px solid #c8f56a;background:rgba(200,245,106,.12)}.small{display:block;font-size:13px;line-height:1.55}
 @media(max-width:560px){.wrap{padding:24px 12px 40px}.hero{padding:72px 4px 16px}.home-button{top:10px;right:4px;min-width:100px}h1{font-size:32px;line-height:1}.card{padding:17px;margin:12px 0}h2{font-size:21px}.pick-row{grid-template-columns:1fr;gap:7px}.grid{grid-template-columns:1fr 1fr}.grid>div{padding:12px}.player-button{min-height:52px;margin:5px 0}.table-wrap{margin:0 -4px}.table-wrap table{min-width:660px}th,td{padding:10px 8px;font-size:13px}}
 </style>
 </head>
@@ -101,6 +101,8 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-ov
 <input id="modalInput" type="text" autocomplete="off">
 <button type="button" id="modalOk">OK</button>
 </div>
+<p id="modalError" class="warning small hidden" style="margin:10px 0 0"></p>
+<button type="button" id="modalBack" class="secondary" style="margin-top:10px">Back</button>
 </div>
 </div>
 
@@ -115,11 +117,14 @@ let state=null, me=null, isAdmin=false, countdownTimer=null;
 
 const $=id=>document.getElementById(id);
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function customPrompt(message,{password=false,maxLength=null}={}){
+function customPrompt(message,{password=false,maxLength=null,validate=null}={}){
  return new Promise(resolve=>{
    $("modalMessage").textContent=message;
    const input=$("modalInput");
    const ok=$("modalOk");
+   const back=$("modalBack");
+   const errEl=$("modalError");
+   errEl.classList.add("hidden"); errEl.textContent="";
    input.type=password?"password":"text";
    input.value="";
    const w=maxLength?(maxLength+2)+"ch":"220px";
@@ -136,12 +141,22 @@ function customPrompt(message,{password=false,maxLength=null}={}){
    function cleanup(val){
      $("modalOverlay").classList.add("hidden");
      ok.removeEventListener("click",onOk);
+     back.removeEventListener("click",onBack);
      input.removeEventListener("keydown",onKey);
      resolve(val);
    }
-   function onOk(){cleanup(input.value)}
+   async function onOk(){
+     const val=input.value;
+     if(validate){
+       const err=await validate(val);
+       if(err){errEl.textContent=err;errEl.classList.remove("hidden");input.value="";input.focus();return}
+     }
+     cleanup(val);
+   }
+   function onBack(){cleanup(null)}
    function onKey(e){if(e.key==="Enter"){e.preventDefault();onOk()}else if(e.key==="Escape"){cleanup(null)}}
    ok.addEventListener("click",onOk);
+   back.addEventListener("click",onBack);
    input.addEventListener("keydown",onKey);
  });
 }
@@ -239,8 +254,8 @@ async function renderLogin(){
  }catch(e){$("loginMsg").textContent=e.message;return}
  document.querySelectorAll("[data-name]").forEach(b=>b.addEventListener("click",()=>handlePlayerLogin(b.dataset.name)));
  $("adminButton").addEventListener("click",async()=>{
-   const code=await customPrompt("Enter administrator code",{password:true});
-   if(code!==null) enterAs("ADMIN",code==="NINE180");
+   const code=await customPrompt("Enter administrator code",{password:true,validate:c=>c==="NINE180"?null:"Incorrect administrator code."});
+   if(code!==null) enterAs("ADMIN",true);
  });
 }
 async function handlePlayerLogin(name){
@@ -249,14 +264,12 @@ async function handlePlayerLogin(name){
    const p=s.players.find(x=>x.name.toLowerCase()===name.toLowerCase());
    if(!p){$("loginMsg").textContent="That player is not registered.";return}
    if(!p.pin){
-     const pin=await customPrompt(`${p.name} set your 4-digit PIN. You'll need it to log in and pick from now on — don't share it with anyone else.`,{password:true,maxLength:4});
+     const pin=await customPrompt(`${p.name} set your 4-digit PIN. You'll need it to log in and pick from now on — don't share it with anyone else.`,{password:true,maxLength:4,validate:v=>/^\d{4}$/.test(v)?null:"PIN must be exactly 4 digits."});
      if(pin===null) return;
-     if(!/^\d{4}$/.test(pin)){$("loginMsg").textContent="PIN must be exactly 4 digits.";return}
      state=await api("POST",{action:"setPin",player:p.name,pin});
    } else {
-     const pin=await customPrompt(`${p.name} ENTER YOUR PIN.`,{password:true,maxLength:4});
+     const pin=await customPrompt(`${p.name} ENTER YOUR PIN.`,{password:true,maxLength:4,validate:v=>v===p.pin?null:"Incorrect PIN."});
      if(pin===null) return;
-     if(pin!==p.pin){$("loginMsg").textContent="Incorrect PIN.";return}
      state=s;
    }
    $("loginMsg").textContent="";
