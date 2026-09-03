@@ -78,6 +78,7 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-ov
 <button id="setManualLock" type="button" class="secondary" style="margin-top:10px">Set lock time manually</button>
 <button id="clearLock" type="button" class="secondary" style="margin-top:10px">Clear lock</button>
 <p id="lockStatus" class="muted" aria-live="polite" style="margin-top:10px"></p>
+<div id="announceBanner"></div>
 </div>
 
 <p class="muted">Enter the actual result for every active player's selected team, then resolve the round.</p>
@@ -252,6 +253,12 @@ function renderAdmin(){
    $("lockStatus").innerHTML=`Round ${state.round} locks ${lockedAlready?"<strong class='warning'>(already locked)</strong>":"at"} ${when.toLocaleString(undefined,{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} <span class="small muted">(matchday ${esc(state.lock.matchday)}, set ${state.lock.source==="auto"?"automatically from fixtures":"manually"})</span>`;
  } else {
    $("lockStatus").textContent="No lock time set for this round yet.";
+ }
+ if(state.pendingAnnouncement?.round===state.round&&state.pendingAnnouncement.text){
+   const waUrl="https://wa.me/?text="+encodeURIComponent(state.pendingAnnouncement.text);
+   $("announceBanner").innerHTML=`<div class="notice" style="margin-top:10px">Round ${state.round} picks are locked and ready to share.<br><a href="${waUrl}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px"><button type="button">Send to WhatsApp</button></a></div>`;
+ } else {
+   $("announceBanner").innerHTML="";
  }
 }
 function renderLockCountdown(){
