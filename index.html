@@ -48,6 +48,7 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-ov
 <section id="playerView" class="card">
 <h2 id="playerHeading">Round 3 selection</h2>
 <div id="myStatus"></div>
+<div id="lockCountdown"></div>
 <div id="pickArea"></div>
 <button id="savePick" style="margin-top:10px">Save Round 3 Selection</button>
 <p id="pickMsg" class="muted" aria-live="polite"></p>
@@ -60,6 +61,24 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-ov
 
 <section id="adminView" class="card hidden">
 <h2>Administrator</h2>
+
+<div class="card" style="margin:0 0 15px;padding:16px">
+<h2 style="font-size:18px;margin-bottom:8px">Round lock</h2>
+<p class="muted small">Once locked, players can no longer change their pick for this round. Try auto-detect first (pulls the earliest Premier League kickoff for the matchday below from a free public fixtures feed); if it can't find fixtures yet, set the lock time manually.</p>
+<div class="pick-row" style="grid-template-columns:auto 1fr;margin-top:10px">
+<label for="lockMatchday" class="small muted">Matchday #</label>
+<input id="lockMatchday" type="number" min="1" max="38" style="min-height:44px;border-radius:10px;border:1px solid rgba(213,239,220,.18);padding:8px 12px;background:#10211f;color:#eff6f1">
+</div>
+<button id="autoLock" type="button" class="secondary" style="margin-top:10px">Auto-detect kickoff &amp; lock</button>
+<div class="pick-row" style="grid-template-columns:auto 1fr;margin-top:12px">
+<label for="manualLock" class="small muted">Or set manually</label>
+<input id="manualLock" type="datetime-local" style="min-height:44px;border-radius:10px;border:1px solid rgba(213,239,220,.18);padding:8px 12px;background:#10211f;color:#eff6f1">
+</div>
+<button id="setManualLock" type="button" class="secondary" style="margin-top:10px">Set lock time manually</button>
+<button id="clearLock" type="button" class="secondary" style="margin-top:10px">Clear lock</button>
+<p id="lockStatus" class="muted" aria-live="polite" style="margin-top:10px"></p>
+</div>
+
 <p class="muted">Enter the actual result for every active player's selected team, then resolve the round.</p>
 <div id="adminResults"></div>
 <button id="resolve" style="margin-top:10px">Resolve Round</button>
@@ -79,10 +98,56 @@ const TEAMS=["AFC Bournemouth","Arsenal","Aston Villa","Brentford","Brighton & H
 const SUPABASE_URL="https://dyhmelgjcmjkerqtvaaa.supabase.co";
 const SUPABASE_ANON_KEY="sb_publishable_kqd-AN1O6Th0BpsFS_n2dw_OMkU5p9O";
 const TABLE="game_state";
-let state=null, me=null, isAdmin=false;
+const SEASON="2026-27";
+let state=null, me=null, isAdmin=false, countdownTimer=null;
 
 const $=id=>document.getElementById(id);
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+
+// Converts a "YYYY-MM-DD" + "HH:MM" pair, understood as UK local time (GMT/BST),
+// into a proper UTC Date. Handles the UK's daylight-saving switch (last Sun in
+// March to last Sun in October) so the countdown is correct wherever players are.
+function ukTimeToUTC(dateStr,timeStr){
+  const [y,m,d]=dateStr.split("-").map(Number);
+  const [hh,mm]=(timeStr||"12:00").split(":").map(Number);
+  function lastSundayUTC(year,month){const dt=new Date(Date.UTC(year,month,0));dt.setUTCDate(dt.getUTCDate()-dt.getUTCDay());return dt;}
+  const dstStart=lastSundayUTC(y,3);dstStart.setUTCHours(1,0,0,0);
+  const dstEnd=lastSundayUTC(y,10);dstEnd.setUTCHours(1,0,0,0);
+  const naiveUTC=new Date(Date.UTC(y,m-1,d,hh,mm));
+  const isBST=naiveUTC>=dstStart&&naiveUTC<dstEnd;
+  return new Date(Date.UTC(y,m-1,d,hh-(isBST?1:0),mm));
+}
+// Fetches the free openfootball fixtures feed and returns the earliest kickoff
+// (as a UTC Date) among all matches in the given matchday for the current season.
+async function fetchMatchdayKickoff(matchday){
+  const url=`https://raw.githubusercontent.com/openfootball/football.json/master/${SEASON}/en.1.json`;
+  let res;
+  try{res=await fetch(url,{cache:"no-store"})}catch{throw new Error("Could not reach the fixtures feed. Set the lock time manually instead.")}
+  if(!res.ok) throw new Error(`Fixture data for the ${SEASON} season isn't published on the free feed yet. Set the lock time manually instead.`);
+  const data=await res.json();
+  const matches=(data.matches||[]).filter(mt=>mt.round===`Matchday ${matchday}`);
+  if(!matches.length) throw new Error(`No fixtures found for Matchday ${matchday} yet. Set the lock time manually instead.`);
+  let earliest=null;
+  for(const mt of matches){
+    if(!mt.date) continue;
+    const dt=ukTimeToUTC(mt.date,mt.time);
+    if(!earliest||dt<earliest) earliest=dt;
+  }
+  if(!earliest) throw new Error("Fixtures were found but had no dates. Set the lock time manually instead.");
+  return earliest;
+}
+function formatCountdown(ms){
+  if(ms<=0) return null;
+  const s=Math.floor(ms/1000);
+  const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60),sec=s%60;
+  const parts=[];
+  if(d) parts.push(d+"d");
+  if(d||h) parts.push(h+"h");
+  if(d||h||m) parts.push(m+"m");
+  parts.push(sec+"s");
+  return parts.join(" ");
+}
+function isLocked(){return state?.lock?.iso && Date.now()>=new Date(state.lock.iso).getTime()}
 async function api(method="GET",body=null){
  const headers={apikey:SUPABASE_ANON_KEY,Authorization:"Bearer "+SUPABASE_ANON_KEY,"Content-Type":"application/json"};
  if(method==="GET"){
@@ -97,18 +162,23 @@ async function api(method="GET",body=null){
  let state=await api("GET");
  if(!state || !Array.isArray(state.players)) throw new Error("Invalid game state returned from Supabase.");
  if(body.action==="pick"){
+   if(state.lock?.iso && Date.now()>=new Date(state.lock.iso).getTime()) throw new Error("Picks are locked for this round — the first game has kicked off.");
    const p=state.players.find(x=>x.name.toLowerCase()===String(body.player).toLowerCase());
    if(!p||!p.alive) throw new Error("Player is not active.");
    if(!TEAMS.includes(body.team)) throw new Error("Invalid Premier League team.");
    if(p.history.some(h=>h.team===body.team)) throw new Error("You have already used that team.");
    state.currentPicks=state.currentPicks||{}; state.currentPicks[p.name]=body.team;
+ } else if(body.action==="setLock"){
+   state.lock={matchday:body.matchday,iso:body.iso,source:body.source};
+ } else if(body.action==="clearLock"){
+   state.lock=null;
  } else if(body.action==="resolve"){
    const active=state.players.filter(p=>p.alive);
    if(active.some(p=>!state.currentPicks?.[p.name])) throw new Error("Every active player must make a selection.");
    const results=active.map(p=>({player:p.name,team:state.currentPicks[p.name],result:body.results?.[p.name]}));
    if(results.some(x=>!["win","draw","loss"].includes(x.result))) throw new Error("Every active player needs a valid result.");
    results.forEach(x=>{const p=state.players.find(p=>p.name===x.player);p.history.push({round:state.round,team:x.team,result:x.result});if(x.result!=="win")p.alive=false;});
-   state.history.push({round:state.round,results}); state.currentPicks={};
+   state.history.push({round:state.round,results}); state.currentPicks={}; state.lock=null;
    const alive=state.players.filter(p=>p.alive); if(alive.length===1) state.winner=alive[0].name; else if(!alive.length) throw new Error("All players were eliminated. The round was not saved."); else state.round++;
  } else throw new Error("Unknown action.");
  const r=await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.1`,{method:"PATCH",headers:{...headers,Prefer:"return=representation"},body:JSON.stringify({data:state})});
@@ -159,22 +229,50 @@ function render(){
  }).join("")+"</tbody></table></div>";
 
  const p=state.players.find(x=>x.name.toLowerCase()===String(me).toLowerCase());
- if(!p){return}
- $("playerHeading").textContent=`Round ${state.round} selection`;
- $("myStatus").innerHTML=`<p><strong>${esc(p.name)}</strong> · <span class="${p.alive?"alive":"out"}">${p.alive?"ALIVE":"ELIMINATED"}</span></p>`;
- if(!p.alive){$("pickArea").innerHTML="<div class='notice'>You are eliminated from the game.</div>";$("savePick").classList.add("hidden");}
- else if(state.winner){$("pickArea").innerHTML=`<div class='winner'>🏆 ${esc(state.winner)} wins €180</div>`;$("savePick").classList.add("hidden");}
- else{
-   const used=p.history.map(h=>h.team);
-   const existing=state.currentPicks?.[p.name]||"";
-   $("pickArea").innerHTML=`<label for="team" class="small muted">Choose one team. Teams you have already used are removed.<br><strong>ONLY WHEN ALL PLAYERS STILL ALIVE HAVE SELECTED THEIR TEAMS WILL THE DISPLAY SHOW ALL SELECTIONS</strong></label><select id="team" style="width:100%;margin-top:6px"><option value="">Select team</option>${TEAMS.filter(t=>!used.includes(t)).map(t=>`<option value="${esc(t)}" ${t===existing?"selected":""}>${esc(t)}</option>`).join("")}</select>`;
-   $("savePick").classList.remove("hidden");
+ if(p){
+   $("playerHeading").textContent=`Round ${state.round} selection`;
+   $("myStatus").innerHTML=`<p><strong>${esc(p.name)}</strong> · <span class="${p.alive?"alive":"out"}">${p.alive?"ALIVE":"ELIMINATED"}</span></p>`;
+   if(p.alive&&!state.winner) renderLockCountdown(); else {clearInterval(countdownTimer);$("lockCountdown").innerHTML="";}
+   if(!p.alive){$("pickArea").innerHTML="<div class='notice'>You are eliminated from the game.</div>";$("savePick").classList.add("hidden");}
+   else if(state.winner){$("pickArea").innerHTML=`<div class='winner'>🏆 ${esc(state.winner)} wins €180</div>`;$("savePick").classList.add("hidden");}
+   else if(isLocked()){
+     $("pickArea").innerHTML="<div class='notice'>Picks are locked for this round — the first game has kicked off.</div>";
+     $("savePick").classList.add("hidden");
+   }
+   else{
+     const used=p.history.map(h=>h.team);
+     const existing=state.currentPicks?.[p.name]||"";
+     $("pickArea").innerHTML=`<label for="team" class="small muted">Choose one team. Teams you have already used are removed.<br><strong>ONLY WHEN ALL PLAYERS STILL ALIVE HAVE SELECTED THEIR TEAMS WILL THE DISPLAY SHOW ALL SELECTIONS</strong></label><select id="team" style="width:100%;margin-top:6px"><option value="">Select team</option>${TEAMS.filter(t=>!used.includes(t)).map(t=>`<option value="${esc(t)}" ${t===existing?"selected":""}>${esc(t)}</option>`).join("")}</select>`;
+     $("savePick").classList.remove("hidden");
+   }
  }
- if(isAdmin) renderAdmin();renderHistory();
+ if(isAdmin) renderAdmin();
+ renderHistory();
 }
 function renderAdmin(){
  const active=state.players.filter(p=>p.alive);
  $("adminResults").innerHTML=active.map(p=>`<div class="pick-row"><div><strong>${esc(p.name)}</strong><br><span class="small muted">${esc(state.currentPicks?.[p.name]||"NO PICK")}</span></div><select data-player="${esc(p.name)}"><option value="win">Win — survive</option><option value="draw">Draw — eliminate</option><option value="loss">Loss — eliminate</option></select></div>`).join("")||"<div class='notice'>No active players.</div>";
+ if(!$("lockMatchday").value) $("lockMatchday").value=state.round;
+ if(state.lock?.iso){
+   const when=new Date(state.lock.iso);
+   const lockedAlready=Date.now()>=when.getTime();
+   $("lockStatus").innerHTML=`Round ${state.round} locks ${lockedAlready?"<strong class='warning'>(already locked)</strong>":"at"} ${when.toLocaleString(undefined,{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} <span class="small muted">(matchday ${esc(state.lock.matchday)}, set ${state.lock.source==="auto"?"automatically from fixtures":"manually"})</span>`;
+ } else {
+   $("lockStatus").textContent="No lock time set for this round yet.";
+ }
+}
+function renderLockCountdown(){
+ clearInterval(countdownTimer);
+ const el=$("lockCountdown");
+ if(!state.lock?.iso||state.winner){el.innerHTML="";return}
+ const target=new Date(state.lock.iso).getTime();
+ function tick(){
+   const left=formatCountdown(target-Date.now());
+   el.innerHTML=left?`<div class="notice">Picks lock in <strong>${left}</strong> (Matchday ${esc(state.lock.matchday)} kicks off)</div>`:"";
+   if(!left){clearInterval(countdownTimer);render();}
+ }
+ tick();
+ countdownTimer=setInterval(tick,1000);
 }
 function renderHistory(){
  if(!state.history.length){$("historyBody").textContent="No completed rounds yet.";return}
@@ -183,6 +281,28 @@ function renderHistory(){
 $("savePick").addEventListener("click",async()=>{
  const team=$("team")?.value;if(!team){$("pickMsg").textContent="Select a team first.";return}
  try{state=await api("POST",{action:"pick",player:me,team});window.location.reload()}catch(e){$("pickMsg").textContent=e.message}
+});
+$("autoLock").addEventListener("click",async()=>{
+ const matchday=parseInt($("lockMatchday").value,10);
+ if(!matchday){$("lockStatus").textContent="Enter a matchday number first.";return}
+ $("lockStatus").textContent="Looking up kickoff times…";
+ try{
+   const kickoff=await fetchMatchdayKickoff(matchday);
+   state=await api("POST",{action:"setLock",matchday,iso:kickoff.toISOString(),source:"auto"});
+   render();
+ }catch(e){$("lockStatus").textContent=e.message}
+});
+$("setManualLock").addEventListener("click",async()=>{
+ const matchday=parseInt($("lockMatchday").value,10)||state.round;
+ const val=$("manualLock").value;
+ if(!val){$("lockStatus").textContent="Pick a date and time first.";return}
+ try{
+   state=await api("POST",{action:"setLock",matchday,iso:new Date(val).toISOString(),source:"manual"});
+   render();
+ }catch(e){$("lockStatus").textContent=e.message}
+});
+$("clearLock").addEventListener("click",async()=>{
+ try{state=await api("POST",{action:"clearLock"});render()}catch(e){$("lockStatus").textContent=e.message}
 });
 $("resolve").addEventListener("click",async()=>{
  const results={};document.querySelectorAll("#adminResults select").forEach(s=>results[s.dataset.player]=s.value);
