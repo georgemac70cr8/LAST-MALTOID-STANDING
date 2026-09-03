@@ -10,7 +10,7 @@
 <style>
 :root{font-family:"DM Sans",system-ui,sans-serif;color:#f5f7f2;background:#08100f;accent-color:#c8f56a}
 *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 12% 0%,#24413b 0,transparent 30rem),radial-gradient(circle at 100% 28%,#202c4a 0,transparent 34rem),#08100f;color:#f5f7f2}.wrap{max-width:920px;margin:auto;padding:42px 16px 56px}
-.hero{padding:12px 4px 24px}
+.hero{position:relative;padding:12px 132px 24px 4px}.home-button{position:absolute;top:12px;right:4px;width:auto;min-width:108px}
 .card{background:linear-gradient(135deg,rgba(28,43,41,.88),rgba(13,23,29,.91));border:1px solid rgba(213,239,220,.13);border-radius:18px;padding:22px;margin:15px 0;box-shadow:0 18px 44px rgba(0,0,0,.22);backdrop-filter:blur(12px)}
 h1,h2{font-family:"Space Grotesk",sans-serif;letter-spacing:-.04em}h1{margin:0 0 6px;font-size:44px;line-height:.95;font-weight:700;color:#c8f56a}h2{margin-top:0;font-size:23px}.muted{color:#a7b4ad}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:rgba(213,239,220,.10);border:1px solid rgba(213,239,220,.10);border-radius:12px;overflow:hidden}.grid>div{padding:14px 15px;background:rgba(5,13,13,.24)}.grid strong{font-family:"Space Grotesk",sans-serif;font-size:22px;color:#fff}
 button,select{min-height:48px;border-radius:10px;border:1px solid rgba(213,239,220,.18);padding:10px 13px;font:inherit;font-size:15px}button{cursor:pointer;font-weight:700;letter-spacing:.01em;background:#c8f56a;color:#0a1612;border:0;width:100%;box-shadow:0 7px 18px rgba(200,245,106,.16);transition:transform .16s ease,box-shadow .16s ease,background .16s ease}button:hover{background:#d7ff89;transform:translateY(-1px);box-shadow:0 10px 24px rgba(200,245,106,.24)}.secondary{background:rgba(225,240,234,.1);color:#eff6f1;border:1px solid rgba(225,240,234,.2);box-shadow:none}.secondary:hover{background:rgba(225,240,234,.17)}select{width:100%;color:#eff6f1;background:#10211f}select option{background:#10211f;color:#eff6f1}
@@ -23,6 +23,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 10p
 <body>
 <div class="wrap">
 <header class="hero">
+<button id="homeButton" class="home-button" type="button">Home</button>
 <h1>LAST MALTOID STANDING</h1>
 <div class="muted">Premier League · €20 entry · €180 pot</div>
 </header>
@@ -161,7 +162,7 @@ function render(){
  else{
    const used=p.history.map(h=>h.team);
    const existing=state.currentPicks?.[p.name]||"";
-   $("pickArea").innerHTML=`<label for="team" class="small muted">Choose one team. Teams you have already used are removed.</label><select id="team" style="width:100%;margin-top:6px"><option value="">Select team</option>${TEAMS.filter(t=>!used.includes(t)).map(t=>`<option value="${esc(t)}" ${t===existing?"selected":""}>${esc(t)}</option>`).join("")}</select>`;
+   $("pickArea").innerHTML=`<label for="team" class="small muted">Choose one team. Teams you have already used are removed. ONLY WHEN ALL PLAYERS STILL ALIVE HAVE SELECTED THEIR TEAMS WILL THE DISPLAY SHOW ALL SELECTIONS</label><select id="team" style="width:100%;margin-top:6px"><option value="">Select team</option>${TEAMS.filter(t=>!used.includes(t)).map(t=>`<option value="${esc(t)}" ${t===existing?"selected":""}>${esc(t)}</option>`).join("")}</select>`;
    $("savePick").classList.remove("hidden");
  }
  if(isAdmin) renderAdmin();renderHistory();
@@ -181,6 +182,11 @@ $("savePick").addEventListener("click",async()=>{
 $("resolve").addEventListener("click",async()=>{
  const results={};document.querySelectorAll("#adminResults select").forEach(s=>results[s.dataset.player]=s.value);
  try{state=await api("POST",{action:"resolve",results});$("adminMsg").textContent=state.winner?`🏆 ${state.winner} wins €180.`:`Round resolved. Round ${state.round} is now open.`;render()}catch(e){$("adminMsg").textContent=e.message}
+});
+$("homeButton").addEventListener("click",()=>{
+ me=null;isAdmin=false;
+ $("app").classList.add("hidden");$("login").classList.remove("hidden");
+ $("loginMsg").textContent="";renderLogin();window.scrollTo({top:0,behavior:"smooth"});
 });
 $("login").classList.remove("hidden");
 renderLogin();
