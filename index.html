@@ -292,7 +292,7 @@ function renderLockCountdown(){
  function tick(){
    const p=countdownParts(target-Date.now());
    if(!p){el.innerHTML="";clearInterval(countdownTimer);render();return}
-   el.innerHTML=`<div class="card"><div class="countdown-tiles">${tile(p.d,"days")}${tile(p.h,"hrs")}${tile(p.m,"min")}${tile(p.s,"sec")}</div><div class="countdown-caption">until picks lock — Matchday ${esc(state.lock.matchday)}</div></div>`;
+   el.innerHTML=`<div class="card"><div class="countdown-tiles">${tile(p.d,"days")}${tile(p.h,"hrs")}${tile(p.m,"min")}${tile(p.s,"sec")}</div><div class="countdown-caption">CHOSE YOUR TEAM BEFORE THE CLOCKS RUNS DOWN</div></div>`;
  }
  tick();
  countdownTimer=setInterval(tick,1000);
