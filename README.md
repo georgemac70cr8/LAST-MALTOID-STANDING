@@ -1,4 +1,4 @@
-# THE NINE — Vercel + Supabase (static)
+# LAST MALTOID STANDING — Vercel + Supabase (static)
 
 This version has no Vercel Functions and no Netlify dependency. Vercel serves the static site; the browser uses the Supabase Data API with the project's publishable key.
 
