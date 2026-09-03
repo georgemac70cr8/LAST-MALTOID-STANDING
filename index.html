@@ -65,9 +65,9 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-ov
 
 <div class="card" style="margin:0 0 15px;padding:16px">
 <h2 style="font-size:18px;margin-bottom:8px">Round lock</h2>
-<p class="muted small">Once locked, players can no longer change their pick for this round. Try auto-detect first (pulls the earliest Premier League kickoff for the matchday below from a free public fixtures feed); if it can't find fixtures yet, set the lock time manually.</p>
+<p class="muted small">Once locked, players can no longer change their pick for this round. Try auto-detect first (pulls the earliest Premier League kickoff for the match week below from a free public fixtures feed); if it can't find fixtures yet, set the lock time manually.</p>
 <div class="pick-row" style="grid-template-columns:auto 1fr;margin-top:10px">
-<label for="lockMatchday" class="small muted">Matchday #</label>
+<label for="lockMatchday" class="small muted">Match week #</label>
 <input id="lockMatchday" type="number" min="1" max="38" style="min-height:44px;border-radius:10px;border:1px solid rgba(213,239,220,.18);padding:8px 12px;background:#10211f;color:#eff6f1">
 </div>
 <button id="autoLock" type="button" class="secondary" style="margin-top:10px">Auto-detect kickoff &amp; lock</button>
@@ -128,7 +128,7 @@ async function fetchMatchdayKickoff(matchday){
   if(!res.ok) throw new Error(`Fixture data for the ${SEASON} season isn't published on the free feed yet. Set the lock time manually instead.`);
   const data=await res.json();
   const matches=(data.matches||[]).filter(mt=>mt.round===`Matchday ${matchday}`);
-  if(!matches.length) throw new Error(`No fixtures found for Matchday ${matchday} yet. Set the lock time manually instead.`);
+  if(!matches.length) throw new Error(`No fixtures found for match week ${matchday} yet. Set the lock time manually instead.`);
   let earliest=null;
   for(const mt of matches){
     if(!mt.date) continue;
@@ -271,7 +271,7 @@ function renderAdmin(){
  if(state.lock?.iso){
    const when=new Date(state.lock.iso);
    const lockedAlready=Date.now()>=when.getTime();
-   $("lockStatus").innerHTML=`Round ${state.round} locks ${lockedAlready?"<strong class='warning'>(already locked)</strong>":"at"} ${when.toLocaleString(undefined,{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} <span class="small muted">(matchday ${esc(state.lock.matchday)}, set ${state.lock.source==="auto"?"automatically from fixtures":"manually"})</span>`;
+   $("lockStatus").innerHTML=`Round ${state.round} locks ${lockedAlready?"<strong class='warning'>(already locked)</strong>":"at"} ${when.toLocaleString(undefined,{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} <span class="small muted">(match week ${esc(state.lock.matchday)}, set ${state.lock.source==="auto"?"automatically from fixtures":"manually"})</span>`;
  } else {
    $("lockStatus").textContent="No lock time set for this round yet.";
  }
@@ -307,7 +307,7 @@ $("savePick").addEventListener("click",async()=>{
 });
 $("autoLock").addEventListener("click",async()=>{
  const matchday=parseInt($("lockMatchday").value,10);
- if(!matchday){$("lockStatus").textContent="Enter a matchday number first.";return}
+ if(!matchday){$("lockStatus").textContent="Enter a match week number first.";return}
  $("lockStatus").textContent="Looking up kickoff times…";
  try{
    const kickoff=await fetchMatchdayKickoff(matchday);
