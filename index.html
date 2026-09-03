@@ -157,7 +157,13 @@ async function api(method="GET",body=null){
  }
  let state=await api("GET");
  if(!state || !Array.isArray(state.players)) throw new Error("Invalid game state returned from Supabase.");
- if(body.action==="pick"){
+ if(body.action==="setPin"){
+   const p=state.players.find(x=>x.name.toLowerCase()===String(body.player).toLowerCase());
+   if(!p) throw new Error("Player is not registered.");
+   if(p.pin) throw new Error("PIN already set for this player.");
+   if(!/^\d{4}$/.test(String(body.pin))) throw new Error("PIN must be exactly 4 digits.");
+   p.pin=String(body.pin);
+ } else if(body.action==="pick"){
    if(state.lock?.iso && Date.now()>=new Date(state.lock.iso).getTime()) throw new Error("Picks are locked for this round — the first game has kicked off.");
    const p=state.players.find(x=>x.name.toLowerCase()===String(body.player).toLowerCase());
    if(!p||!p.alive) throw new Error("Player is not active.");
@@ -191,21 +197,36 @@ async function renderLogin(){
      return `<button type="button" class="player-button${eliminated?" eliminated-player":""}" data-name="${n}">${n}${eliminated?" · ELIMINATED":""}</button>`;
    }).join("")+`<button type="button" id="adminButton" class="secondary" style="margin-top:12px">Administrator</button>`;
  }catch(e){$("loginMsg").textContent=e.message;return}
- document.querySelectorAll("[data-name]").forEach(b=>b.addEventListener("click",()=>enterAs(b.dataset.name,false)));
+ document.querySelectorAll("[data-name]").forEach(b=>b.addEventListener("click",()=>handlePlayerLogin(b.dataset.name)));
  $("adminButton").addEventListener("click",()=>{
    const code=prompt("Enter administrator code");
    if(code!==null) enterAs("ADMIN",code==="NINE180");
  });
 }
+async function handlePlayerLogin(name){
+ try{
+   const s=await api("GET");
+   const p=s.players.find(x=>x.name.toLowerCase()===name.toLowerCase());
+   if(!p){$("loginMsg").textContent="That player is not registered.";return}
+   if(!p.pin){
+     const pin=prompt(`Set a 4-digit PIN for ${p.name}. You'll need it to log in and pick from now on — don't share it with anyone else.`);
+     if(pin===null) return;
+     if(!/^\d{4}$/.test(pin)){$("loginMsg").textContent="PIN must be exactly 4 digits.";return}
+     state=await api("POST",{action:"setPin",player:p.name,pin});
+   } else {
+     const pin=prompt(`Enter the PIN for ${p.name}:`);
+     if(pin===null) return;
+     if(pin!==p.pin){$("loginMsg").textContent="Incorrect PIN.";return}
+     state=s;
+   }
+   $("loginMsg").textContent="";
+   enterAs(p.name,false);
+ }catch(e){$("loginMsg").textContent=e.message}
+}
 async function enterAs(name,admin){
  try{
-   state=await api("GET");
-   if(admin){isAdmin=true;me="ADMIN"}
-   else{
-     const p=state.players.find(x=>x.name.toLowerCase()===name.toLowerCase());
-     if(!p){$("loginMsg").textContent="That player is not registered.";return}
-     me=p.name;
-   }
+   if(admin){state=await api("GET");isAdmin=true;me="ADMIN"}
+   else{me=name;isAdmin=false}
    $("login").classList.add("hidden");$("app").classList.remove("hidden");
    $("adminView").classList.toggle("hidden",!isAdmin);render();
  }catch(e){$("loginMsg").textContent=e.message}
