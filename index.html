@@ -16,6 +16,7 @@ h1,h2{font-family:"Space Grotesk",sans-serif;letter-spacing:-.04em}h1{margin:0 0
 button,select{min-height:48px;border-radius:10px;border:1px solid rgba(213,239,220,.18);padding:10px 13px;font:inherit;font-size:15px}button{cursor:pointer;font-weight:700;letter-spacing:.01em;background:#c8f56a;color:#0a1612;border:0;width:100%;box-shadow:0 7px 18px rgba(200,245,106,.16);transition:transform .16s ease,box-shadow .16s ease,background .16s ease}button:hover{background:#d7ff89;transform:translateY(-1px);box-shadow:0 10px 24px rgba(200,245,106,.24)}.secondary{background:rgba(225,240,234,.1);color:#eff6f1;border:1px solid rgba(225,240,234,.2);box-shadow:none}.secondary:hover{background:rgba(225,240,234,.17)}select{width:100%;color:#eff6f1;background:#10211f}select option{background:#10211f;color:#eff6f1}
 table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid rgba(213,239,220,.11)}th{font-size:11px;color:#9caea4;letter-spacing:.09em;text-transform:uppercase}tr:last-child td{border-bottom:0}.alive{color:#c8f56a;font-weight:800}.out{color:#ff8c86;font-weight:800}.pick-row{display:grid;grid-template-columns:145px 1fr;gap:12px;align-items:center;margin:9px 0}
 .notice{padding:13px;border-radius:10px;background:rgba(132,186,255,.10);border:1px solid rgba(132,186,255,.23);color:#d9e9ff}.winner{font-family:"Space Grotesk",sans-serif;font-size:25px;font-weight:700;color:#c8f56a}
+.countdown-tiles{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.countdown-tile{background:rgba(200,245,106,.08);border:1px solid rgba(200,245,106,.25);border-radius:10px;padding:10px 14px;text-align:center;min-width:56px}.countdown-num{font-family:"Space Grotesk",sans-serif;font-size:22px;font-weight:700;color:#c8f56a;line-height:1}.countdown-label{font-size:10px;letter-spacing:.08em;color:#9caea4;text-transform:uppercase;margin-top:4px}.countdown-caption{text-align:center;font-size:11px;color:#7f8b85;margin:10px 0 0}
 .hidden{display:none!important}.player-button{text-align:left;background:rgba(255,255,255,.045);color:#f5f7f2;border:1px solid rgba(213,239,220,.13);margin:6px 0;box-shadow:none}.player-button:hover{background:rgba(200,245,106,.13);border-color:rgba(200,245,106,.45)}.player-button.eliminated-player{color:#7f8b85;background:rgba(255,255,255,.025);border-color:rgba(213,239,220,.08);opacity:.62}.player-button.eliminated-player:hover{background:rgba(255,255,255,.045);border-color:rgba(213,239,220,.13)}.warning{color:#ff8c86;font-weight:800}.selected{outline:2px solid #c8f56a;background:rgba(200,245,106,.12)}.small{display:block;font-size:13px;line-height:1.55}
 @media(max-width:560px){.wrap{padding:24px 12px 40px}.hero{padding:72px 4px 16px}.home-button{top:10px;right:4px;min-width:100px}h1{font-size:32px;line-height:1}.card{padding:17px;margin:12px 0}h2{font-size:21px}.pick-row{grid-template-columns:1fr;gap:7px}.grid{grid-template-columns:1fr 1fr}.grid>div{padding:12px}.player-button{min-height:52px;margin:5px 0}.table-wrap{margin:0 -4px}.table-wrap table{min-width:660px}th,td{padding:10px 8px;font-size:13px}}
 </style>
@@ -36,6 +37,7 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-ov
 </section>
 
 <section id="app" class="hidden">
+<div id="lockCountdown"></div>
 <div class="card">
 <div class="grid">
 <div><div class="muted">Current round</div><strong id="round">3</strong></div>
@@ -48,7 +50,6 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-ov
 <section id="playerView" class="card">
 <h2 id="playerHeading">Round 3 selection</h2>
 <div id="myStatus"></div>
-<div id="lockCountdown"></div>
 <div id="pickArea"></div>
 <button id="savePick" style="margin-top:10px">Save Round 3 Selection</button>
 <p id="pickMsg" class="muted" aria-live="polite"></p>
@@ -136,16 +137,10 @@ async function fetchMatchdayKickoff(matchday){
   if(!earliest) throw new Error("Fixtures were found but had no dates. Set the lock time manually instead.");
   return earliest;
 }
-function formatCountdown(ms){
+function countdownParts(ms){
   if(ms<=0) return null;
   const s=Math.floor(ms/1000);
-  const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60),sec=s%60;
-  const parts=[];
-  if(d) parts.push(d+"d");
-  if(d||h) parts.push(h+"h");
-  if(d||h||m) parts.push(m+"m");
-  parts.push(sec+"s");
-  return parts.join(" ");
+  return {d:Math.floor(s/86400),h:Math.floor((s%86400)/3600),m:Math.floor((s%3600)/60),s:s%60};
 }
 function isLocked(){return state?.lock?.iso && Date.now()>=new Date(state.lock.iso).getTime()}
 async function api(method="GET",body=null){
@@ -218,13 +213,14 @@ function render(){
  $("round").textContent=state.round;
  $("alive").textContent=state.players.filter(p=>p.alive).length;
  $("gameStatus").textContent=state.winner?"FINISHED":"OPEN";
+ renderLockCountdown();
  const sorted=[...state.players].sort((a,b)=>a.name.localeCompare(b.name));
  const activePlayers=state.players.filter(p=>p.alive);
  const allActivePlayersHavePicked=activePlayers.length>0&&activePlayers.every(p=>state.currentPicks?.[p.name]);
  $("standings").innerHTML="<div class=\"table-wrap\"><table><thead><tr><th>Player</th><th>Status</th><th>Round 1</th><th>Round 2</th><th>Current</th></tr></thead><tbody>"+
  sorted.map(p=>{
    const h1=p.history.find(h=>h.round===1),h2=p.history.find(h=>h.round===2),currentPick=state.currentPicks?.[p.name]||"—";
-   const cur=isAdmin||allActivePlayersHavePicked||p.name===me?currentPick:"—";
+   const cur=isAdmin||allActivePlayersHavePicked||isLocked()||p.name===me?currentPick:"—";
    return `<tr><td><strong>${esc(p.name)}</strong></td><td class="${p.alive?"alive":"out"}">${p.alive?"ALIVE":"ELIMINATED"}</td><td>${esc(h1?.team||"—")}</td><td>${esc(h2?.team||"—")}</td><td>${esc(cur)}</td></tr>`;
  }).join("")+"</tbody></table></div>";
 
@@ -232,7 +228,6 @@ function render(){
  if(p){
    $("playerHeading").textContent=`Round ${state.round} selection`;
    $("myStatus").innerHTML=`<p><strong>${esc(p.name)}</strong> · <span class="${p.alive?"alive":"out"}">${p.alive?"ALIVE":"ELIMINATED"}</span></p>`;
-   if(p.alive&&!state.winner) renderLockCountdown(); else {clearInterval(countdownTimer);$("lockCountdown").innerHTML="";}
    if(!p.alive){$("pickArea").innerHTML="<div class='notice'>You are eliminated from the game.</div>";$("savePick").classList.add("hidden");}
    else if(state.winner){$("pickArea").innerHTML=`<div class='winner'>🏆 ${esc(state.winner)} wins €180</div>`;$("savePick").classList.add("hidden");}
    else if(isLocked()){
@@ -266,10 +261,12 @@ function renderLockCountdown(){
  const el=$("lockCountdown");
  if(!state.lock?.iso||state.winner){el.innerHTML="";return}
  const target=new Date(state.lock.iso).getTime();
+ function pad(n){return String(n).padStart(2,"0")}
+ function tile(num,label){return `<div class="countdown-tile"><div class="countdown-num">${pad(num)}</div><div class="countdown-label">${label}</div></div>`}
  function tick(){
-   const left=formatCountdown(target-Date.now());
-   el.innerHTML=left?`<div class="notice">Picks lock in <strong>${left}</strong> (Matchday ${esc(state.lock.matchday)} kicks off)</div>`:"";
-   if(!left){clearInterval(countdownTimer);render();}
+   const p=countdownParts(target-Date.now());
+   if(!p){el.innerHTML="";clearInterval(countdownTimer);render();return}
+   el.innerHTML=`<div class="card"><div class="countdown-tiles">${tile(p.d,"days")}${tile(p.h,"hrs")}${tile(p.m,"min")}${tile(p.s,"sec")}</div><div class="countdown-caption">until picks lock — Matchday ${esc(state.lock.matchday)}</div></div>`;
  }
  tick();
  countdownTimer=setInterval(tick,1000);
