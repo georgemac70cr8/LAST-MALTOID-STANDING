@@ -16,7 +16,7 @@ h1,h2{font-family:"Space Grotesk",sans-serif;letter-spacing:-.04em}h1{margin:0 0
 button,select{min-height:48px;border-radius:10px;border:1px solid rgba(213,239,220,.18);padding:10px 13px;font:inherit;font-size:15px}button{cursor:pointer;font-weight:700;letter-spacing:.01em;background:#c8f56a;color:#0a1612;border:0;width:100%;box-shadow:0 7px 18px rgba(200,245,106,.16);transition:transform .16s ease,box-shadow .16s ease,background .16s ease}button:hover{background:#d7ff89;transform:translateY(-1px);box-shadow:0 10px 24px rgba(200,245,106,.24)}.secondary{background:rgba(225,240,234,.1);color:#eff6f1;border:1px solid rgba(225,240,234,.2);box-shadow:none}.secondary:hover{background:rgba(225,240,234,.17)}select{width:100%;color:#eff6f1;background:#10211f}select option{background:#10211f;color:#eff6f1}
 table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid rgba(213,239,220,.11)}th{font-size:11px;color:#9caea4;letter-spacing:.09em;text-transform:uppercase}tr:last-child td{border-bottom:0}.alive{color:#c8f56a;font-weight:800}.out{color:#ff8c86;font-weight:800}.pick-row{display:grid;grid-template-columns:145px 1fr;gap:12px;align-items:center;margin:9px 0}
 .notice{padding:13px;border-radius:10px;background:rgba(132,186,255,.10);border:1px solid rgba(132,186,255,.23);color:#d9e9ff}.winner{font-family:"Space Grotesk",sans-serif;font-size:25px;font-weight:700;color:#c8f56a}
-.hidden{display:none!important}.player-button{text-align:left;background:rgba(255,255,255,.045);color:#f5f7f2;border:1px solid rgba(213,239,220,.13);margin:6px 0;box-shadow:none}.player-button:hover{background:rgba(200,245,106,.13);border-color:rgba(200,245,106,.45)}.selected{outline:2px solid #c8f56a;background:rgba(200,245,106,.12)}.small{display:block;font-size:13px;line-height:1.55}
+.hidden{display:none!important}.player-button{text-align:left;background:rgba(255,255,255,.045);color:#f5f7f2;border:1px solid rgba(213,239,220,.13);margin:6px 0;box-shadow:none}.player-button:hover{background:rgba(200,245,106,.13);border-color:rgba(200,245,106,.45)}.player-button.eliminated-player{color:#7f8b85;background:rgba(255,255,255,.025);border-color:rgba(213,239,220,.08);opacity:.62}.player-button.eliminated-player:hover{background:rgba(255,255,255,.045);border-color:rgba(213,239,220,.13)}.selected{outline:2px solid #c8f56a;background:rgba(200,245,106,.12)}.small{display:block;font-size:13px;line-height:1.55}
 @media(max-width:560px){.wrap{padding:24px 12px 40px}.hero{padding:72px 4px 16px}.home-button{top:10px;right:4px;min-width:100px}h1{font-size:32px;line-height:1}.card{padding:17px;margin:12px 0}h2{font-size:21px}.pick-row{grid-template-columns:1fr;gap:7px}.grid{grid-template-columns:1fr 1fr}.grid>div{padding:12px}.player-button{min-height:52px;margin:5px 0}.table-wrap{margin:0 -4px}.table-wrap table{min-width:660px}th,td{padding:10px 8px;font-size:13px}}
 </style>
 </head>
@@ -117,9 +117,15 @@ async function api(method="GET",body=null){
  if(!r.ok) throw new Error(j?.message||j?.hint||j?.error_description||"Could not save game state.");
  return state;
 }
-function renderLogin(){
- $("playerChoices").innerHTML=PLAYERS.map(n=>`<button type="button" class="player-button" data-name="${n}">${n}</button>`).join("")+
- `<button type="button" id="adminButton" class="secondary" style="margin-top:12px">Administrator</button>`;
+async function renderLogin(){
+ try{
+   const loginState=await api("GET");
+   $("playerChoices").innerHTML=PLAYERS.map(n=>{
+     const player=loginState.players.find(p=>p.name.toLowerCase()===n.toLowerCase());
+     const eliminated=player&&!player.alive;
+     return `<button type="button" class="player-button${eliminated?" eliminated-player":""}" data-name="${n}">${n}${eliminated?" · ELIMINATED":""}</button>`;
+   }).join("")+`<button type="button" id="adminButton" class="secondary" style="margin-top:12px">Administrator</button>`;
+ }catch(e){$("loginMsg").textContent=e.message;return}
  document.querySelectorAll("[data-name]").forEach(b=>b.addEventListener("click",()=>enterAs(b.dataset.name,false)));
  $("adminButton").addEventListener("click",()=>{
    const code=prompt("Enter administrator code");
