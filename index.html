@@ -174,7 +174,7 @@ function renderHistory(){
 }
 $("savePick").addEventListener("click",async()=>{
  const team=$("team")?.value;if(!team){$("pickMsg").textContent="Select a team first.";return}
- try{state=await api("POST",{action:"pick",player:me,team});$("pickMsg").textContent=`${team} saved for Round ${state.round}.`;render()}catch(e){$("pickMsg").textContent=e.message}
+ try{state=await api("POST",{action:"pick",player:me,team});window.location.reload()}catch(e){$("pickMsg").textContent=e.message}
 });
 $("resolve").addEventListener("click",async()=>{
  const results={};document.querySelectorAll("#adminResults select").forEach(s=>results[s.dataset.player]=s.value);
