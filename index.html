@@ -144,9 +144,12 @@ function render(){
  $("alive").textContent=state.players.filter(p=>p.alive).length;
  $("gameStatus").textContent=state.winner?"FINISHED":"OPEN";
  const sorted=[...state.players].sort((a,b)=>a.name.localeCompare(b.name));
+ const activePlayers=state.players.filter(p=>p.alive);
+ const allActivePlayersHavePicked=activePlayers.length>0&&activePlayers.every(p=>state.currentPicks?.[p.name]);
  $("standings").innerHTML="<table><thead><tr><th>Player</th><th>Status</th><th>Round 1</th><th>Round 2</th><th>Current</th></tr></thead><tbody>"+
  sorted.map(p=>{
-   const h1=p.history.find(h=>h.round===1),h2=p.history.find(h=>h.round===2),cur=state.currentPicks?.[p.name]||"—";
+   const h1=p.history.find(h=>h.round===1),h2=p.history.find(h=>h.round===2),currentPick=state.currentPicks?.[p.name]||"—";
+   const cur=isAdmin||allActivePlayersHavePicked||p.name===me?currentPick:"—";
    return `<tr><td><strong>${esc(p.name)}</strong></td><td class="${p.alive?"alive":"out"}">${p.alive?"ALIVE":"ELIMINATED"}</td><td>${esc(h1?.team||"—")}</td><td>${esc(h2?.team||"—")}</td><td>${esc(cur)}</td></tr>`;
  }).join("")+"</tbody></table>";
 
