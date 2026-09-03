@@ -116,12 +116,25 @@ let state=null, me=null, isAdmin=false, countdownTimer=null;
 
 const $=id=>document.getElementById(id);
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function customPrompt(message,{password=false}={}){
+function customPrompt(message,{password=false,maxLength=null}={}){
  return new Promise(resolve=>{
    $("modalMessage").textContent=message;
    const input=$("modalInput");
    input.type=password?"password":"text";
    input.value="";
+   if(maxLength){
+     input.maxLength=maxLength;
+     input.style.width=(maxLength+2)+"ch";
+     input.style.textAlign="center";
+     input.style.display="block";
+     input.style.margin="0 auto";
+   } else {
+     input.removeAttribute("maxlength");
+     input.style.width="100%";
+     input.style.textAlign="left";
+     input.style.display="";
+     input.style.margin="";
+   }
    $("modalOverlay").classList.remove("hidden");
    setTimeout(()=>input.focus(),0);
    function cleanup(val){
@@ -243,12 +256,12 @@ async function handlePlayerLogin(name){
    const p=s.players.find(x=>x.name.toLowerCase()===name.toLowerCase());
    if(!p){$("loginMsg").textContent="That player is not registered.";return}
    if(!p.pin){
-     const pin=await customPrompt(`${p.name} set your 4-digit PIN. You'll need it to log in and pick from now on — don't share it with anyone else.`,{password:true});
+     const pin=await customPrompt(`${p.name} set your 4-digit PIN. You'll need it to log in and pick from now on — don't share it with anyone else.`,{password:true,maxLength:4});
      if(pin===null) return;
      if(!/^\d{4}$/.test(pin)){$("loginMsg").textContent="PIN must be exactly 4 digits.";return}
      state=await api("POST",{action:"setPin",player:p.name,pin});
    } else {
-     const pin=await customPrompt(`Enter the PIN for ${p.name}:`,{password:true});
+     const pin=await customPrompt(`${p.name} ENTER YOUR PIN.`,{password:true,maxLength:4});
      if(pin===null) return;
      if(pin!==p.pin){$("loginMsg").textContent="Incorrect PIN.";return}
      state=s;
