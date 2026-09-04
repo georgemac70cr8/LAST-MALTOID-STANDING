@@ -340,13 +340,18 @@ function renderLockCountdown(){
  const target=new Date(state.lock.iso).getTime();
  function pad(n){return String(n).padStart(2,"0")}
  function tile(num,label){return `<div class="countdown-tile"><div class="countdown-num">${pad(num)}</div><div class="countdown-label">${label}</div></div>`}
- function tick(){
+ function paint(rerenderOnExpiry){
    const p=countdownParts(target-Date.now());
-   if(!p){el.innerHTML="";clearInterval(countdownTimer);render();return}
+   if(!p){
+     el.innerHTML="";
+     clearInterval(countdownTimer);
+     if(rerenderOnExpiry) render();
+     return;
+   }
    el.innerHTML=`<div class="card"><div class="countdown-tiles">${tile(p.d,"days")}${tile(p.h,"hrs")}${tile(p.m,"min")}${tile(p.s,"sec")}</div><div class="countdown-caption">CHOSE YOUR TEAM BEFORE THE CLOCKS RUNS DOWN</div></div>`;
  }
- tick();
- countdownTimer=setInterval(tick,1000);
+ paint(false);
+ countdownTimer=setInterval(()=>paint(true),1000);
 }
 function renderHistory(){
  if(!state.history.length){$("historyBody").textContent="No completed rounds yet.";return}
