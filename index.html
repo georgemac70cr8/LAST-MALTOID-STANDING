@@ -346,12 +346,14 @@ function renderLockCountdown(){
      el.innerHTML="";
      clearInterval(countdownTimer);
      if(rerenderOnExpiry) render();
-     return;
+     return false;
    }
    el.innerHTML=`<div class="card"><div class="countdown-tiles">${tile(p.d,"days")}${tile(p.h,"hrs")}${tile(p.m,"min")}${tile(p.s,"sec")}</div><div class="countdown-caption">CHOSE YOUR TEAM BEFORE THE CLOCKS RUNS DOWN</div></div>`;
+   return true;
  }
- paint(false);
- countdownTimer=setInterval(()=>paint(true),1000);
+ if(paint(false)){
+   countdownTimer=setInterval(()=>paint(true),1000);
+ }
 }
 function renderHistory(){
  if(!state.history.length){$("historyBody").textContent="No completed rounds yet.";return}
