@@ -84,6 +84,7 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-ov
 <div id="adminResults"></div>
 <button id="resolve" style="margin-top:10px">Resolve Round</button>
 <p id="adminMsg" class="muted" aria-live="polite"></p>
+<div id="resultsAnnounceBanner"></div>
 </section>
 
 <section class="card">
@@ -231,9 +232,17 @@ async function api(method="GET",body=null){
    if(active.some(p=>!state.currentPicks?.[p.name])) throw new Error("Every active player must make a selection.");
    const results=active.map(p=>({player:p.name,team:state.currentPicks[p.name],result:body.results?.[p.name]}));
    if(results.some(x=>!["win","draw","loss"].includes(x.result))) throw new Error("Every active player needs a valid result.");
+   const resolvedRound=state.round;
    results.forEach(x=>{const p=state.players.find(p=>p.name===x.player);p.history.push({round:state.round,team:x.team,result:x.result});if(x.result!=="win")p.alive=false;});
    state.history.push({round:state.round,results}); state.currentPicks={}; state.lock=null;
    const alive=state.players.filter(p=>p.alive); if(alive.length===1) state.winner=alive[0].name; else if(!alive.length) throw new Error("All players were eliminated. The round was not saved."); else state.round++;
+   const eliminated=results.filter(x=>x.result!=="win").map(x=>x.player).sort();
+   const stillAlive=state.players.filter(p=>p.alive).map(p=>p.name).sort();
+   let resultsText=`Round ${resolvedRound} results:\n\n`;
+   resultsText+=eliminated.length?`ELIMINATED:\n${eliminated.join("\n")}\n\n`:"No eliminations this round!\n\n";
+   resultsText+=state.winner?`🏆 ${state.winner} wins €180!`:`STILL ALIVE:\n${stillAlive.join("\n")}`;
+   resultsText+=`\n\nhttps://last-maltoid-standing.vercel.app/`;
+   state.lastResultsAnnouncement={round:resolvedRound,text:resultsText};
  } else throw new Error("Unknown action.");
  const r=await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.1`,{method:"PATCH",headers:{...headers,Prefer:"return=representation"},body:JSON.stringify({data:state})});
  const text=await r.text(); let j; try{j=text?JSON.parse(text):null}catch{throw new Error("Supabase returned a non-JSON response: "+text.slice(0,120));}
@@ -335,6 +344,12 @@ function renderAdmin(){
    $("announceBanner").innerHTML=`<div class="notice" style="margin-top:10px">Round ${state.round} picks are locked and ready to share.<br><a href="${waUrl}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px"><button type="button">Send to WhatsApp</button></a></div>`;
  } else {
    $("announceBanner").innerHTML="";
+ }
+ if(state.lastResultsAnnouncement?.text){
+   const waUrl2="https://wa.me/?text="+encodeURIComponent(state.lastResultsAnnouncement.text);
+   $("resultsAnnounceBanner").innerHTML=`<div class="notice" style="margin-top:10px">Round ${state.lastResultsAnnouncement.round} results are ready to share.<br><a href="${waUrl2}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px"><button type="button">Send Results to WhatsApp</button></a></div>`;
+ } else {
+   $("resultsAnnounceBanner").innerHTML="";
  }
 }
 function renderLockCountdown(){
