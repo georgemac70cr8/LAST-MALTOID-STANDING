@@ -278,7 +278,9 @@ async function enterAs(name,admin){
    if(admin){state=await api("GET");isAdmin=true;me="ADMIN"}
    else{me=name;isAdmin=false}
    $("login").classList.add("hidden");$("app").classList.remove("hidden");
-   $("adminView").classList.toggle("hidden",!isAdmin);render();
+   $("adminView").classList.toggle("hidden",!isAdmin);
+   $("playerView").classList.toggle("hidden",isAdmin);
+   render();
  }catch(e){$("loginMsg").textContent=e.message}
 }
 function render(){
