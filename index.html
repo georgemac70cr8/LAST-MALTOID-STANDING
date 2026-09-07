@@ -62,6 +62,8 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-ov
 <section id="adminView" class="card hidden">
 <h2>Administrator</h2>
 
+<button type="button" id="shareStandingsBtn" class="secondary" style="margin-bottom:15px">Send Standings to WhatsApp</button>
+
 <div class="card" style="margin:0 0 15px;padding:16px">
 <h2 style="font-size:18px;margin-bottom:8px">Round lock</h2>
 <p class="muted small">Once locked, players can no longer change their pick for this round. Try auto-detect first (pulls the earliest Premier League kickoff for the match week below from a free public fixtures feed); if it can't find fixtures yet, set the lock time manually.</p>
@@ -403,6 +405,15 @@ $("setManualLock").addEventListener("click",async()=>{
 });
 $("clearLock").addEventListener("click",async()=>{
  try{state=await api("POST",{action:"clearLock"});render()}catch(e){$("lockStatus").textContent=e.message}
+});
+$("shareStandingsBtn").addEventListener("click",()=>{
+ const alive=state.players.filter(p=>p.alive).map(p=>p.name).sort();
+ const eliminated=state.players.filter(p=>!p.alive).map(p=>p.name).sort();
+ let text=`Current standings — Round ${state.round}:\n\n`;
+ text+=`STILL ALIVE:\n${alive.join("\n")||"None"}\n\n`;
+ text+=`ELIMINATED:\n${eliminated.join("\n")||"None yet"}`;
+ text+=`\n\nhttps://last-maltoid-standing.vercel.app/`;
+ window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank");
 });
 $("resolve").addEventListener("click",async()=>{
  const results={};document.querySelectorAll("#adminResults select").forEach(s=>results[s.dataset.player]=s.value);
