@@ -467,7 +467,7 @@ $("resolve").addEventListener("click",async()=>{
  }
  try{
    state=await api("POST",{action:"resolve",results,topUp});
-   $("adminMsg").textContent=state.winner?`🏆 ${state.winner} wins €${state.pot}.`:willWipeOut?`Everyone was eliminated — round saved, all players reinstated, pot rolled over to €${state.pot}. Round ${state.round} is now open.`:`Round resolved. Round ${state.round} is now open.`;
+   $("adminMsg").textContent=state.winner?`🏆 ${state.winner} wins €${state.pot}.`:willWipeOut?`Everyone was eliminated — all players reinstated, pot rolled over to €${state.pot}. Round ${state.round} is now open.`:`Round resolved. Round ${state.round} is now open.`;
    render();
  }catch(e){$("adminMsg").textContent=e.message}
 });
