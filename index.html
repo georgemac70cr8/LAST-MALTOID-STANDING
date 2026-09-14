@@ -251,7 +251,7 @@ async function api(method="GET",body=null){
    let resultsText=`Round ${last.round} results:\n\n`;
    resultsText+=eliminated.length?`ELIMINATED:\n${eliminated.join("\n")}\n\n`:"No eliminations this round!\n\n";
    if(survivors.length===1&&!wasWipeout) resultsText+=`🏆 ${survivors[0]} wins €${state.pot}!`;
-   else if(wasWipeout) resultsText+=`Everyone was eliminated — no single winner. All players reinstated, pot rolls over to €${state.pot}.\n\nALIVE:\n${roundActive.join("\n")}`;
+   else if(wasWipeout) resultsText+=`Everyone was eliminated — no single winner. All players reinstated, pot rolls over to €${state.pot}.\n\nALIVE:\n${state.players.map(p=>p.name).sort().join("\n")}`;
    else resultsText+=`STILL ALIVE:\n${survivors.join("\n")}`;
    resultsText+=`\n\nhttps://last-maltoid-standing.vercel.app/`;
    state.lastResultsAnnouncement={round:last.round,text:resultsText};
