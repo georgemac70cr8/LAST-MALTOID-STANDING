@@ -210,7 +210,7 @@ let lastFixturesKey=null;
 // back to ESPN's own current-week detection if no lock is set yet. Keyed
 // by matchday/round so it only re-fetches when the tracked round changes.
 async function loadFixtures(){
- const key=state.lock?.matchday!=null?`mw:${state.lock.matchday}`:`round:${state.round}`;
+ const key=(state.lock?.matchday!=null?`mw:${state.lock.matchday}`:`round:${state.round}`)+"|"+me;
  if(key===lastFixturesKey) return;
  lastFixturesKey=key;
  const el=$("fixturesList");
@@ -237,16 +237,18 @@ async function loadFixtures(){
      const kickoff=ev.date?new Date(ev.date):null;
      return {home,away,kickoff};
    }).sort((a,b)=>(a.kickoff?.getTime()||0)-(b.kickoff?.getTime()||0));
+   const tz=(typeof me==="string"&&me.toLowerCase()==="joycey")?"America/Chicago":undefined;
    const groups=[];
    for(const m of matches){
-     const key=m.kickoff?m.kickoff.getTime():"tbc";
-     let g=groups.find(x=>x.key===key);
-     if(!g){g={key,kickoff:m.kickoff,fixtures:[]};groups.push(g)}
+     const gkey=m.kickoff?m.kickoff.getTime():"tbc";
+     let g=groups.find(x=>x.key===gkey);
+     if(!g){g={key:gkey,kickoff:m.kickoff,fixtures:[]};groups.push(g)}
      g.fixtures.push(m);
    }
-   el.innerHTML=groups.map(g=>{
-     const day=g.kickoff?g.kickoff.toLocaleString(undefined,{weekday:"short",day:"numeric",month:"short"}):"";
-     const time=g.kickoff?g.kickoff.toLocaleString(undefined,{hour:"2-digit",minute:"2-digit"}):"TBC";
+   const tzNote=tz?`<div class="small muted" style="margin-bottom:8px">Times shown in Central Time (Dallas)</div>`:"";
+   el.innerHTML=tzNote+groups.map(g=>{
+     const day=g.kickoff?g.kickoff.toLocaleString(undefined,{weekday:"short",day:"numeric",month:"short",timeZone:tz}):"";
+     const time=g.kickoff?g.kickoff.toLocaleString(undefined,{hour:"2-digit",minute:"2-digit",timeZone:tz}):"TBC";
      const fixturesHtml=g.fixtures.map(m=>`${esc(m.home)} vs ${esc(m.away)}`).join(" &nbsp;·&nbsp; ");
      return `<div class="fixture-row"><div class="fixture-time">${day}<br>${time}</div><div class="fixture-teams">${fixturesHtml}</div></div>`;
    }).join("");
