@@ -50,7 +50,7 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-ov
 <h2 id="playerHeading">Round 3 selection</h2>
 <div id="myStatus"></div>
 <div id="pickArea"></div>
-<button id="savePick" style="margin-top:10px">Save Round 3 Selection</button>
+<button id="savePick" style="margin-top:10px">Save Selection</button>
 <p id="pickMsg" class="muted" aria-live="polite"></p>
 </section>
 
@@ -63,6 +63,7 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-ov
 <h2>Administrator</h2>
 
 <button type="button" id="shareStandingsBtn" class="secondary" style="margin-bottom:15px">Send Standings to WhatsApp</button>
+<button type="button" id="resetTeamsBtn" class="secondary" style="margin-bottom:15px">Reset team selections (make all 20 teams available again)</button>
 
 <div class="card" style="margin:0 0 15px;padding:16px">
 <h2 style="font-size:18px;margin-bottom:8px">Round lock</h2>
@@ -231,6 +232,11 @@ async function api(method="GET",body=null){
    state.lock={matchday:body.matchday,iso:body.iso,source:body.source};
  } else if(body.action==="clearLock"){
    state.lock=null;
+ } else if(body.action==="resetTeams"){
+   // Manual admin override: lift the team-reuse restriction immediately,
+   // for correcting a past win/wipeout that was saved before the
+   // automatic reset existed, or any other one-off correction needed.
+   state.teamsResetAtRound=state.round;
  } else if(body.action==="resolve"){
    const active=state.players.filter(p=>p.alive);
    if(active.some(p=>!state.currentPicks?.[p.name])) throw new Error("Every active player must make a selection.");
@@ -341,6 +347,7 @@ function render(){
  const p=state.players.find(x=>x.name.toLowerCase()===String(me).toLowerCase());
  if(p){
    $("playerHeading").textContent=`Round ${state.round} selection`;
+   $("savePick").textContent=`Save Round ${state.round} Selection`;
    $("myStatus").innerHTML=`<p><strong>${esc(p.name)}</strong> · <span class="${p.alive?"alive":"out"}">${p.alive?"ALIVE":"ELIMINATED"}</span></p>`;
    if(!p.alive){$("pickArea").innerHTML="<div class='notice'>You are eliminated from the game.</div>";$("savePick").classList.add("hidden");}
    else if(state.winner){$("pickArea").innerHTML=`<div class='winner'>🏆 ${esc(state.winner)} wins €${state.pot}</div>`;$("savePick").classList.add("hidden");}
@@ -434,6 +441,10 @@ $("setManualLock").addEventListener("click",async()=>{
 });
 $("clearLock").addEventListener("click",async()=>{
  try{state=await api("POST",{action:"clearLock"});render()}catch(e){$("lockStatus").textContent=e.message}
+});
+$("resetTeamsBtn").addEventListener("click",async()=>{
+ if(!confirm("This makes all 20 teams available again for every player, including teams already used in past rounds. Continue?")) return;
+ try{state=await api("POST",{action:"resetTeams"});$("adminMsg").textContent="Team selections reset — all 20 teams are now available to every player.";render()}catch(e){$("adminMsg").textContent=e.message}
 });
 $("shareStandingsBtn").addEventListener("click",()=>{
  const alive=state.players.filter(p=>p.alive).map(p=>p.name).sort();
