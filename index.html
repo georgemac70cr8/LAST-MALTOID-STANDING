@@ -415,10 +415,13 @@ function render(){
  loadFixtures();
  const sorted=[...state.players].sort((a,b)=>a.name.localeCompare(b.name));
  const roundsPlayed=(state.history||[]).length;
- const roundHeaders=Array.from({length:roundsPlayed},(_,i)=>`<th>Round ${i+1}</th>`).join("");
+ const resetAt=typeof state.teamsResetAtRound==="number"?state.teamsResetAtRound:0;
+ const roundsToShow=[];
+ for(let r=resetAt+1;r<=roundsPlayed;r++) roundsToShow.push(r);
+ const roundHeaders=roundsToShow.map(r=>`<th>Round ${r}</th>`).join("");
  $("standings").innerHTML="<div class=\"table-wrap\"><table><thead><tr><th>Player</th><th>Status</th>"+roundHeaders+"<th>Current</th></tr></thead><tbody>"+
  sorted.map(p=>{
-   const roundCells=Array.from({length:roundsPlayed},(_,i)=>{const h=p.history.find(x=>x.round===i+1);return `<td>${esc(h?.team||"—")}</td>`;}).join("");
+   const roundCells=roundsToShow.map(r=>{const h=p.history.find(x=>x.round===r);return `<td>${esc(h?.team||"—")}</td>`;}).join("");
    const currentPick=state.currentPicks?.[p.name]||"—";
    const cur=isAdmin||isLocked()||p.name===me?currentPick:"—";
    return `<tr><td><strong>${esc(p.name)}</strong></td><td class="${p.alive?"alive":"out"}">${p.alive?"ALIVE":"ELIMINATED"}</td>${roundCells}<td>${esc(cur)}</td></tr>`;
