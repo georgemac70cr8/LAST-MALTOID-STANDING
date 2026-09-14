@@ -245,7 +245,7 @@ async function loadFixtures(){
      if(!g){g={key:gkey,kickoff:m.kickoff,fixtures:[]};groups.push(g)}
      g.fixtures.push(m);
    }
-   const tzNote=tz?`<div class="small muted" style="margin-bottom:8px">Times shown in Central Time (Dallas)</div>`:"";
+   const tzNote=tz?`<div class="small muted" style="margin-bottom:8px">Times shown in Central Time.</div>`:"";
    el.innerHTML=tzNote+groups.map(g=>{
      const day=g.kickoff?g.kickoff.toLocaleString(undefined,{weekday:"short",day:"numeric",month:"short",timeZone:tz}):"";
      const time=g.kickoff?g.kickoff.toLocaleString(undefined,{hour:"2-digit",minute:"2-digit",timeZone:tz}):"TBC";
