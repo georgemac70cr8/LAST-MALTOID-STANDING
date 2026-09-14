@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Last Maltoid Standing — Premier League</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{font-family:"DM Sans",system-ui,sans-serif;color:#f5f7f2;background:#08100f;accent-color:#c8f56a}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 12% 0%,#24413b 0,transparent 30rem),radial-gradient(circle at 100% 28%,#202c4a 0,transparent 34rem),#08100f;color:#f5f7f2}.wrap{max-width:920px;margin:auto;padding:42px 16px 56px}
+.hero{position:relative;padding:12px 132px 24px 4px}.home-button{position:absolute;top:12px;right:4px;width:auto;min-width:108px}
+.card{background:linear-gradient(135deg,rgba(28,43,41,.88),rgba(13,23,29,.91));border:1px solid rgba(213,239,220,.13);border-radius:18px;padding:22px;margin:15px 0;box-shadow:0 18px 44px rgba(0,0,0,.22);backdrop-filter:blur(12px)}
+h1,h2{font-family:"Space Grotesk",sans-serif;letter-spacing:-.04em}h1{margin:0 0 6px;font-size:44px;line-height:.95;font-weight:700;color:#c8f56a}h2{margin-top:0;font-size:23px}.muted{color:#a7b4ad}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:rgba(213,239,220,.10);border:1px solid rgba(213,239,220,.10);border-radius:12px;overflow:hidden}.grid>div{padding:14px 15px;background:rgba(5,13,13,.24)}.grid strong{font-family:"Space Grotesk",sans-serif;font-size:22px;color:#fff}
+button,select{min-height:48px;border-radius:10px;border:1px solid rgba(213,239,220,.18);padding:10px 13px;font:inherit;font-size:15px}button{cursor:pointer;font-weight:700;letter-spacing:.01em;background:#c8f56a;color:#0a1612;border:0;width:100%;box-shadow:0 7px 18px rgba(200,245,106,.16);transition:transform .16s ease,box-shadow .16s ease,background .16s ease}button:hover{background:#d7ff89;transform:translateY(-1px);box-shadow:0 10px 24px rgba(200,245,106,.24)}.secondary{background:rgba(225,240,234,.1);color:#eff6f1;border:1px solid rgba(225,240,234,.2);box-shadow:none}.secondary:hover{background:rgba(225,240,234,.17)}select{width:100%;color:#eff6f1;background:#10211f}select option{background:#10211f;color:#eff6f1}
+table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid rgba(213,239,220,.11)}th{font-size:11px;color:#9caea4;letter-spacing:.09em;text-transform:uppercase}tr:last-child td{border-bottom:0}.alive{color:#c8f56a;font-weight:800}.out{color:#ff8c86;font-weight:800}.pick-row{display:grid;grid-template-columns:145px 1fr;gap:12px;align-items:center;margin:9px 0}
+.notice{padding:13px;border-radius:10px;background:rgba(132,186,255,.10);border:1px solid rgba(132,186,255,.23);color:#d9e9ff}.winner{font-family:"Space Grotesk",sans-serif;font-size:25px;font-weight:700;color:#c8f56a}
+.countdown-tiles{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.countdown-tile{background:rgba(200,245,106,.08);border:1px solid rgba(200,245,106,.25);border-radius:10px;padding:10px 14px;text-align:center;min-width:56px}.countdown-num{font-family:"Space Grotesk",sans-serif;font-size:22px;font-weight:700;color:#c8f56a;line-height:1}.countdown-label{font-size:10px;letter-spacing:.08em;color:#9caea4;text-transform:uppercase;margin-top:4px}.countdown-caption{text-align:center;font-size:11px;color:#7f8b85;margin:10px 0 0}
+.hidden{display:none!important}.modal-overlay{position:fixed;inset:0;background:rgba(4,10,9,.72);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}.modal-card{background:linear-gradient(135deg,rgba(28,43,41,.97),rgba(13,23,29,.98));border:1px solid rgba(213,239,220,.18);border-radius:16px;padding:20px;width:fit-content;max-width:90vw;box-shadow:0 20px 50px rgba(0,0,0,.5)}.modal-card p{margin:0 0 14px;color:#eff6f1;font-size:15px;line-height:1.5;max-width:300px}.modal-row{display:flex;gap:10px;align-items:stretch;width:100%}#modalInput{flex:1;min-width:0;background:#10211f;color:#eff6f1}#modalOk{flex:1;min-width:0}#modalBack{width:100%}.player-button{text-align:left;background:rgba(255,255,255,.045);color:#f5f7f2;border:1px solid rgba(213,239,220,.13);margin:6px 0;box-shadow:none}.player-button:hover{background:rgba(200,245,106,.13);border-color:rgba(200,245,106,.45)}.player-button.eliminated-player{color:#7f8b85;background:rgba(255,255,255,.025);border-color:rgba(213,239,220,.08);opacity:.62}.player-button.eliminated-player:hover{background:rgba(255,255,255,.045);border-color:rgba(213,239,220,.13)}.warning{color:#ff8c86;font-weight:800}.selected{outline:2px solid #c8f56a;background:rgba(200,245,106,.12)}.small{display:block;font-size:13px;line-height:1.55}
+@media(max-width:560px){.wrap{padding:24px 12px 40px}.hero{padding:72px 4px 16px}.home-button{top:10px;right:4px;min-width:100px}h1{font-size:32px;line-height:1}.card{padding:17px;margin:12px 0}h2{font-size:21px}.pick-row{grid-template-columns:1fr;gap:7px}.grid{grid-template-columns:1fr 1fr}.grid>div{padding:12px}.player-button{min-height:52px;margin:5px 0}.table-wrap{margin:0 -4px}.table-wrap table{min-width:660px}th,td{padding:10px 8px;font-size:13px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero">
+<button id="homeButton" class="home-button" type="button">Home</button>
+<h1>LAST MALTOID STANDING</h1>
+<div class="muted">Premier League · €20 entry · <span id="potLabel">€180 pot</span></div>
+</header>
+
+<section id="login" class="card hidden">
+<div id="playerChoices"></div>
+<input id="adminCode" class="hidden" type="password" aria-label="Admin code">
+<p id="loginMsg" class="muted" aria-live="polite"></p>
+</section>
+
+<section id="app" class="hidden">
+<div id="lockCountdown"></div>
+<div class="card">
+<div class="grid">
+<div><div class="muted">Current round</div><strong id="round">3</strong></div>
+<div><div class="muted">Players alive</div><strong id="alive">5</strong></div>
+<div><div class="muted">Prize pot</div><strong id="pot">€180</strong></div>
+<div><div class="muted">Game status</div><strong id="gameStatus">OPEN</strong></div>
+</div>
+</div>
+
+<section id="playerView" class="card">
+<h2 id="playerHeading">Round 3 selection</h2>
+<div id="myStatus"></div>
+<div id="pickArea"></div>
+<button id="savePick" style="margin-top:10px">Save Round 3 Selection</button>
+<p id="pickMsg" class="muted" aria-live="polite"></p>
+</section>
+
+<section class="card">
+<h2>Standings</h2>
+<div id="standings"></div>
+</section>
+
+<section id="adminView" class="card hidden">
+<h2>Administrator</h2>
+
+<button type="button" id="shareStandingsBtn" class="secondary" style="margin-bottom:15px">Send Standings to WhatsApp</button>
+
+<div class="card" style="margin:0 0 15px;padding:16px">
+<h2 style="font-size:18px;margin-bottom:8px">Round lock</h2>
+<p class="muted small">Once locked, players can no longer change their pick for this round. Try auto-detect first (pulls the earliest Premier League kickoff for the match week below from a free public fixtures feed); if it can't find fixtures yet, set the lock time manually.</p>
+<div class="pick-row" style="grid-template-columns:auto 1fr;margin-top:10px">
+<label for="lockMatchday" class="small muted">Match week #</label>
+<input id="lockMatchday" type="number" min="1" max="38" style="min-height:44px;border-radius:10px;border:1px solid rgba(213,239,220,.18);padding:8px 12px;background:#10211f;color:#eff6f1">
+</div>
+<button id="autoLock" type="button" class="secondary" style="margin-top:10px">Auto-detect kickoff &amp; lock</button>
+<div class="pick-row" style="grid-template-columns:auto 1fr;margin-top:12px">
+<label for="manualLock" class="small muted">Or set manually</label>
+<input id="manualLock" type="datetime-local" style="min-height:44px;border-radius:10px;border:1px solid rgba(213,239,220,.18);padding:8px 12px;background:#10211f;color:#eff6f1">
+</div>
+<button id="setManualLock" type="button" class="secondary" style="margin-top:10px">Set lock time manually</button>
+<button id="clearLock" type="button" class="secondary" style="margin-top:10px">Clear lock</button>
+<p id="lockStatus" class="muted" aria-live="polite" style="margin-top:10px"></p>
+<div id="announceBanner"></div>
+</div>
+
+<p class="muted">Enter the actual result for every active player's selected team, then resolve the round.</p>
+<div id="adminResults"></div>
+<button id="resolve" style="margin-top:10px">Resolve Round</button>
+<p id="adminMsg" class="muted" aria-live="polite"></p>
+<div id="resultsAnnounceBanner"></div>
+</section>
+
+<section class="card">
+<h2>Round history</h2>
+<div id="historyBody" class="muted">No completed rounds yet.</div>
+</section>
+</section>
+</div>
+
+<div id="modalOverlay" class="modal-overlay hidden">
+<div class="modal-card">
+<p id="modalMessage"></p>
+<div class="modal-row">
+<input id="modalInput" type="text" autocomplete="off">
+<button type="button" id="modalOk">OK</button>
+</div>
+<p id="modalError" class="warning small hidden" style="margin:10px 0 0"></p>
+<button type="button" id="modalBack" class="secondary" style="margin-top:10px">Back</button>
+</div>
+</div>
+
+<script>
+const PLAYERS=["DAMO","DAVE","GEORGE","JOYCEY","MARK","MAU","MURPH","RYAN","STEVE"];
+const TEAMS=["AFC Bournemouth","Arsenal","Aston Villa","Brentford","Brighton & Hove Albion","Chelsea","Coventry City","Crystal Palace","Everton","Fulham","Hull City","Ipswich Town","Leeds United","Liverpool","Manchester City","Manchester United","Newcastle United","Nottingham Forest","Sunderland","Tottenham Hotspur"];
+const SUPABASE_URL="https://dyhmelgjcmjkerqtvaaa.supabase.co";
+const SUPABASE_ANON_KEY="sb_publishable_kqd-AN1O6Th0BpsFS_n2dw_OMkU5p9O";
+const TABLE="game_state";
+const SEASON="2026-27";
+let state=null, me=null, isAdmin=false, countdownTimer=null;
+
+const $=id=>document.getElementById(id);
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function customPrompt(message,{password=false,maxLength=null,validate=null}={}){
+ return new Promise(resolve=>{
+   $("modalMessage").textContent=message;
+   const input=$("modalInput");
+   const ok=$("modalOk");
+   const back=$("modalBack");
+   const errEl=$("modalError");
+   errEl.classList.add("hidden"); errEl.textContent="";
+   input.type=password?"password":"text";
+   input.value="";
+   if(maxLength){
+     input.maxLength=maxLength;
+     input.style.textAlign="center";
+   } else {
+     input.removeAttribute("maxlength");
+     input.style.textAlign="left";
+   }
+   $("modalOverlay").classList.remove("hidden");
+   setTimeout(()=>input.focus(),0);
+   function cleanup(val){
+     $("modalOverlay").classList.add("hidden");
+     ok.removeEventListener("click",onOk);
+     back.removeEventListener("click",onBack);
+     input.removeEventListener("keydown",onKey);
+     resolve(val);
+   }
+   async function onOk(){
+     const val=input.value;
+     if(validate){
+       const err=await validate(val);
+       if(err){errEl.textContent=err;errEl.classList.remove("hidden");input.value="";input.focus();return}
+     }
+     cleanup(val);
+   }
+   function onBack(){cleanup(null)}
+   function onKey(e){if(e.key==="Enter"){e.preventDefault();onOk()}else if(e.key==="Escape"){cleanup(null)}}
+   ok.addEventListener("click",onOk);
+   back.addEventListener("click",onBack);
+   input.addEventListener("keydown",onKey);
+ });
+}
+
+// Converts a "YYYY-MM-DD" + "HH:MM" pair, understood as UK local time (GMT/BST),
+// into a proper UTC Date. Handles the UK's daylight-saving switch (last Sun in
+// March to last Sun in October) so the countdown is correct wherever players are.
+function ukTimeToUTC(dateStr,timeStr){
+  const [y,m,d]=dateStr.split("-").map(Number);
+  const [hh,mm]=(timeStr||"12:00").split(":").map(Number);
+  function lastSundayUTC(year,month){const dt=new Date(Date.UTC(year,month,0));dt.setUTCDate(dt.getUTCDate()-dt.getUTCDay());return dt;}
+  const dstStart=lastSundayUTC(y,3);dstStart.setUTCHours(1,0,0,0);
+  const dstEnd=lastSundayUTC(y,10);dstEnd.setUTCHours(1,0,0,0);
+  const naiveUTC=new Date(Date.UTC(y,m-1,d,hh,mm));
+  const isBST=naiveUTC>=dstStart&&naiveUTC<dstEnd;
+  return new Date(Date.UTC(y,m-1,d,hh-(isBST?1:0),mm));
+}
+// Fetches the free openfootball fixtures feed and returns the earliest kickoff
+// (as a UTC Date) among all matches in the given matchday for the current season.
+async function fetchMatchdayKickoff(matchday){
+  const url=`https://raw.githubusercontent.com/openfootball/football.json/master/${SEASON}/en.1.json`;
+  let res;
+  try{res=await fetch(url,{cache:"no-store"})}catch{throw new Error("Could not reach the fixtures feed. Set the lock time manually instead.")}
+  if(!res.ok) throw new Error(`Fixture data for the ${SEASON} season isn't published on the free feed yet. Set the lock time manually instead.`);
+  const data=await res.json();
+  const matches=(data.matches||[]).filter(mt=>mt.round===`Matchday ${matchday}`);
+  if(!matches.length) throw new Error(`No fixtures found for match week ${matchday} yet. Set the lock time manually instead.`);
+  let earliest=null;
+  for(const mt of matches){
+    if(!mt.date) continue;
+    const dt=ukTimeToUTC(mt.date,mt.time);
+    if(!earliest||dt<earliest) earliest=dt;
+  }
+  if(!earliest) throw new Error("Fixtures were found but had no dates. Set the lock time manually instead.");
+  return earliest;
+}
+function countdownParts(ms){
+  if(ms<=0) return null;
+  const s=Math.floor(ms/1000);
+  return {d:Math.floor(s/86400),h:Math.floor((s%86400)/3600),m:Math.floor((s%3600)/60),s:s%60};
+}
+function isLocked(){return state?.lock?.iso && Date.now()>=new Date(state.lock.iso).getTime()}
+async function api(method="GET",body=null){
+ const headers={apikey:SUPABASE_ANON_KEY,Authorization:"Bearer "+SUPABASE_ANON_KEY,"Content-Type":"application/json"};
+ if(method==="GET"){
+   const r=await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.1&select=data`,{headers,cache:"no-store"});
+   const text=await r.text(); let j; try{j=text?JSON.parse(text):null}catch{throw new Error("Supabase returned a non-JSON response: "+text.slice(0,120));}
+   if(!r.ok) throw new Error(j?.message||j?.hint||j?.error_description||"Could not load game state.");
+   const row = Array.isArray(j) ? j[0] : j;
+   const game = row && row.data ? row.data : row;
+   if(!game || !Array.isArray(game.players)) throw new Error("Supabase returned an invalid game state. Expected a game_state row containing a players array.");
+   if(typeof game.pot!=="number") game.pot=180;
+   return game;
+ }
+ let state=await api("GET");
+ if(!state || !Array.isArray(state.players)) throw new Error("Invalid game state returned from Supabase.");
+ if(body.action==="setPin"){
+   const p=state.players.find(x=>x.name.toLowerCase()===String(body.player).toLowerCase());
+   if(!p) throw new Error("Player is not registered.");
+   if(p.pin) throw new Error("PIN already set for this player.");
+   if(!/^\d{4}$/.test(String(body.pin))) throw new Error("PIN must be exactly 4 digits.");
+   p.pin=String(body.pin);
+ } else if(body.action==="pick"){
+   if(state.lock?.iso && Date.now()>=new Date(state.lock.iso).getTime()) throw new Error("Picks are locked for this round — the first game has kicked off.");
+   const p=state.players.find(x=>x.name.toLowerCase()===String(body.player).toLowerCase());
+   if(!p||!p.alive) throw new Error("Player is not active.");
+   if(!TEAMS.includes(body.team)) throw new Error("Invalid Premier League team.");
+   if(p.history.some(h=>h.team===body.team)) throw new Error("You have already used that team.");
+   state.currentPicks=state.currentPicks||{}; state.currentPicks[p.name]=body.team;
+ } else if(body.action==="setLock"){
+   state.lock={matchday:body.matchday,iso:body.iso,source:body.source};
+ } else if(body.action==="clearLock"){
+   state.lock=null;
+ } else if(body.action==="resolve"){
+   const active=state.players.filter(p=>p.alive);
+   if(active.some(p=>!state.currentPicks?.[p.name])) throw new Error("Every active player must make a selection.");
+   const results=active.map(p=>({player:p.name,team:state.currentPicks[p.name],result:body.results?.[p.name]}));
+   if(results.some(x=>!["win","draw","loss"].includes(x.result))) throw new Error("Every active player needs a valid result.");
+   const resolvedRound=state.round;
+   results.forEach(x=>{const p=state.players.find(p=>p.name===x.player);p.history.push({round:state.round,team:x.team,result:x.result});if(x.result!=="win")p.alive=false;});
+   state.history.push({round:state.round,results}); state.currentPicks={}; state.lock=null;
+   let wipedOut=false;
+   const alive=state.players.filter(p=>p.alive);
+   if(alive.length===1){
+     state.winner=alive[0].name;
+   } else if(!alive.length){
+     // Full wipeout, no single winner — the round still counts in history
+     // (above), but everyone is reinstated and the pot rolls over plus a
+     // top-up the admin enters at resolve time.
+     const topUp=Number(body.topUp);
+     if(!Number.isFinite(topUp)||topUp<0) throw new Error("Enter a valid pot top-up amount to save this round.");
+     state.players.forEach(p=>p.alive=true);
+     state.pot=(typeof state.pot==="number"?state.pot:180)+topUp;
+     state.round++;
+     wipedOut=true;
+   } else {
+     state.round++;
+   }
+   const eliminated=results.filter(x=>x.result!=="win").map(x=>x.player).sort();
+   const stillAlive=state.players.filter(p=>p.alive).map(p=>p.name).sort();
+   let resultsText=`Round ${resolvedRound} results:\n\n`;
+   resultsText+=eliminated.length?`ELIMINATED:\n${eliminated.join("\n")}\n\n`:"No eliminations this round!\n\n";
+   if(state.winner) resultsText+=`🏆 ${state.winner} wins €${state.pot}!`;
+   else if(wipedOut) resultsText+=`Everyone was eliminated — no single winner. Round saved, all players reinstated, pot rolls over to €${state.pot}.\n\nSTILL ALIVE:\n${stillAlive.join("\n")}`;
+   else resultsText+=`STILL ALIVE:\n${stillAlive.join("\n")}`;
+   resultsText+=`\n\nhttps://last-maltoid-standing.vercel.app/`;
+   state.lastResultsAnnouncement={round:resolvedRound,text:resultsText};
+ } else throw new Error("Unknown action.");
+ const r=await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.1`,{method:"PATCH",headers:{...headers,Prefer:"return=representation"},body:JSON.stringify({data:state})});
+ const text=await r.text(); let j; try{j=text?JSON.parse(text):null}catch{throw new Error("Supabase returned a non-JSON response: "+text.slice(0,120));}
+ if(!r.ok) throw new Error(j?.message||j?.hint||j?.error_description||"Could not save game state.");
+ return state;
+}
+async function renderLogin(){
+ try{
+   const loginState=await api("GET");
+   $("playerChoices").innerHTML=PLAYERS.map(n=>{
+     const player=loginState.players.find(p=>p.name.toLowerCase()===n.toLowerCase());
+     const eliminated=player&&!player.alive;
+     return `<button type="button" class="player-button${eliminated?" eliminated-player":""}" data-name="${n}">${n}${eliminated?" · ELIMINATED":""}</button>`;
+   }).join("")+`<button type="button" id="adminButton" class="secondary" style="margin-top:12px">Administrator</button>`;
+ }catch(e){$("loginMsg").textContent=e.message;return}
+ document.querySelectorAll("[data-name]").forEach(b=>b.addEventListener("click",()=>handlePlayerLogin(b.dataset.name)));
+ $("adminButton").addEventListener("click",async()=>{
+   const code=await customPrompt("Enter administrator code",{password:true,validate:c=>c==="NINE180"?null:"Incorrect administrator code."});
+   if(code!==null) enterAs("ADMIN",true);
+ });
+}
+async function handlePlayerLogin(name){
+ try{
+   const s=await api("GET");
+   const p=s.players.find(x=>x.name.toLowerCase()===name.toLowerCase());
+   if(!p){$("loginMsg").textContent="That player is not registered.";return}
+   if(!p.pin){
+     const pin=await customPrompt(`${p.name} set your 4-digit PIN. You'll need it to log in and pick from now on — don't share it with anyone else.`,{password:true,maxLength:4,validate:v=>/^\d{4}$/.test(v)?null:"PIN must be exactly 4 digits."});
+     if(pin===null) return;
+     state=await api("POST",{action:"setPin",player:p.name,pin});
+   } else {
+     const pin=await customPrompt(`${p.name} ENTER YOUR PIN.`,{password:true,maxLength:4,validate:v=>v===p.pin?null:"Incorrect PIN."});
+     if(pin===null) return;
+     state=s;
+   }
+   $("loginMsg").textContent="";
+   enterAs(p.name,false);
+ }catch(e){$("loginMsg").textContent=e.message}
+}
+async function enterAs(name,admin){
+ try{
+   if(admin){state=await api("GET");isAdmin=true;me="ADMIN"}
+   else{me=name;isAdmin=false}
+   $("login").classList.add("hidden");$("app").classList.remove("hidden");
+   $("adminView").classList.toggle("hidden",!isAdmin);
+   $("playerView").classList.toggle("hidden",isAdmin);
+   render();
+ }catch(e){$("loginMsg").textContent=e.message}
+}
+function render(){
+ $("round").textContent=state.round;
+ $("alive").textContent=state.players.filter(p=>p.alive).length;
+ $("pot").textContent="€"+(typeof state.pot==="number"?state.pot:180);
+ $("potLabel").textContent="€"+(typeof state.pot==="number"?state.pot:180)+" pot";
+ $("gameStatus").textContent=state.winner?"FINISHED":"OPEN";
+ renderLockCountdown();
+ const sorted=[...state.players].sort((a,b)=>a.name.localeCompare(b.name));
+ const roundsPlayed=(state.history||[]).length;
+ const roundHeaders=Array.from({length:roundsPlayed},(_,i)=>`<th>Round ${i+1}</th>`).join("");
+ $("standings").innerHTML="<div class=\"table-wrap\"><table><thead><tr><th>Player</th><th>Status</th>"+roundHeaders+"<th>Current</th></tr></thead><tbody>"+
+ sorted.map(p=>{
+   const roundCells=Array.from({length:roundsPlayed},(_,i)=>{const h=p.history.find(x=>x.round===i+1);return `<td>${esc(h?.team||"—")}</td>`;}).join("");
+   const currentPick=state.currentPicks?.[p.name]||"—";
+   const cur=isAdmin||isLocked()||p.name===me?currentPick:"—";
+   return `<tr><td><strong>${esc(p.name)}</strong></td><td class="${p.alive?"alive":"out"}">${p.alive?"ALIVE":"ELIMINATED"}</td>${roundCells}<td>${esc(cur)}</td></tr>`;
+ }).join("")+"</tbody></table></div>";
+
+ const p=state.players.find(x=>x.name.toLowerCase()===String(me).toLowerCase());
+ if(p){
+   $("playerHeading").textContent=`Round ${state.round} selection`;
+   $("myStatus").innerHTML=`<p><strong>${esc(p.name)}</strong> · <span class="${p.alive?"alive":"out"}">${p.alive?"ALIVE":"ELIMINATED"}</span></p>`;
+   if(!p.alive){$("pickArea").innerHTML="<div class='notice'>You are eliminated from the game.</div>";$("savePick").classList.add("hidden");}
+   else if(state.winner){$("pickArea").innerHTML=`<div class='winner'>🏆 ${esc(state.winner)} wins €${state.pot}</div>`;$("savePick").classList.add("hidden");}
+   else if(isLocked()){
+     $("pickArea").innerHTML="<div class='notice'>Picks are locked for this round — the first game has kicked off.</div>";
+     $("savePick").classList.add("hidden");
+   }
+   else{
+     const used=p.history.map(h=>h.team);
+     const existing=state.currentPicks?.[p.name]||"";
+     $("pickArea").innerHTML=`<label for="team" class="small muted">Choose one team. Teams you have already used are removed.<br><strong>SELECTIONS STAY HIDDEN FROM OTHER PLAYERS UNTIL THE ROUND LOCKS</strong></label><select id="team" style="width:100%;margin-top:6px"><option value="">Select team</option>${TEAMS.filter(t=>!used.includes(t)).map(t=>`<option value="${esc(t)}" ${t===existing?"selected":""}>${esc(t)}</option>`).join("")}</select>`;
+     $("savePick").classList.remove("hidden");
+   }
+ }
+ if(isAdmin) renderAdmin();
+ renderHistory();
+}
+function renderAdmin(){
+ const active=state.players.filter(p=>p.alive);
+ $("adminResults").innerHTML=active.map(p=>`<div class="pick-row"><div><strong>${esc(p.name)}</strong><br><span class="small muted">${esc(state.currentPicks?.[p.name]||"NO PICK")}</span></div><select data-player="${esc(p.name)}"><option value="win">Win — survive</option><option value="draw">Draw — eliminate</option><option value="loss">Loss — eliminate</option></select></div>`).join("")||"<div class='notice'>No active players.</div>";
+ if(!$("lockMatchday").value) $("lockMatchday").value=state.round;
+ if(state.lock?.iso){
+   const when=new Date(state.lock.iso);
+   const lockedAlready=Date.now()>=when.getTime();
+   $("lockStatus").innerHTML=`Round ${state.round} locks ${lockedAlready?"<strong class='warning'>(already locked)</strong>":"at"} ${when.toLocaleString(undefined,{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} <span class="small muted">(match week ${esc(state.lock.matchday)}, set ${state.lock.source==="auto"?"automatically from fixtures":"manually"})</span>`;
+ } else {
+   $("lockStatus").textContent="No lock time set for this round yet.";
+ }
+ if(state.pendingAnnouncement?.round===state.round&&state.pendingAnnouncement.text){
+   const waUrl="https://wa.me/?text="+encodeURIComponent(state.pendingAnnouncement.text);
+   $("announceBanner").innerHTML=`<div class="notice" style="margin-top:10px">Round ${state.round} picks are locked and ready to share.<br><a href="${waUrl}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px"><button type="button">Send to WhatsApp</button></a></div>`;
+ } else {
+   $("announceBanner").innerHTML="";
+ }
+ if(state.lastResultsAnnouncement?.text){
+   const waUrl2="https://wa.me/?text="+encodeURIComponent(state.lastResultsAnnouncement.text);
+   $("resultsAnnounceBanner").innerHTML=`<div class="notice" style="margin-top:10px">Round ${state.lastResultsAnnouncement.round} results are ready to share.<br><a href="${waUrl2}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px"><button type="button">Send Results to WhatsApp</button></a></div>`;
+ } else {
+   $("resultsAnnounceBanner").innerHTML="";
+ }
+}
+function renderLockCountdown(){
+ clearInterval(countdownTimer);
+ const el=$("lockCountdown");
+ if(!state.lock?.iso||state.winner){el.innerHTML="";return}
+ const target=new Date(state.lock.iso).getTime();
+ function pad(n){return String(n).padStart(2,"0")}
+ function tile(num,label){return `<div class="countdown-tile"><div class="countdown-num">${pad(num)}</div><div class="countdown-label">${label}</div></div>`}
+ function paint(rerenderOnExpiry){
+   const p=countdownParts(target-Date.now());
+   if(!p){
+     el.innerHTML="";
+     clearInterval(countdownTimer);
+     if(rerenderOnExpiry) render();
+     return false;
+   }
+   el.innerHTML=`<div class="card"><div class="countdown-tiles">${tile(p.d,"days")}${tile(p.h,"hrs")}${tile(p.m,"min")}${tile(p.s,"sec")}</div><div class="countdown-caption">CHOSE YOUR TEAM BEFORE THE CLOCKS RUNS DOWN</div></div>`;
+   return true;
+ }
+ if(paint(false)){
+   countdownTimer=setInterval(()=>paint(true),1000);
+ }
+}
+function renderHistory(){
+ if(!state.history.length){$("historyBody").textContent="No completed rounds yet.";return}
+ $("historyBody").innerHTML=state.history.map(r=>`<div style="margin:10px 0"><strong>Round ${r.round}</strong><table><tbody>${r.results.map(x=>`<tr><td>${esc(x.player)}</td><td>${esc(x.team)}</td><td>${x.result==="win"?"✅ WIN":"❌ "+x.result.toUpperCase()}</td></tr>`).join("")}</tbody></table></div>`).join("");
+}
+$("savePick").addEventListener("click",async()=>{
+ const team=$("team")?.value;if(!team){$("pickMsg").textContent="Select a team first.";return}
+ try{state=await api("POST",{action:"pick",player:me,team});window.location.reload()}catch(e){$("pickMsg").textContent=e.message}
+});
+$("autoLock").addEventListener("click",async()=>{
+ const matchday=parseInt($("lockMatchday").value,10);
+ if(!matchday){$("lockStatus").textContent="Enter a match week number first.";return}
+ $("lockStatus").textContent="Looking up kickoff times…";
+ try{
+   const kickoff=await fetchMatchdayKickoff(matchday);
+   state=await api("POST",{action:"setLock",matchday,iso:kickoff.toISOString(),source:"auto"});
+   render();
+ }catch(e){$("lockStatus").textContent=e.message}
+});
+$("setManualLock").addEventListener("click",async()=>{
+ const matchday=parseInt($("lockMatchday").value,10)||state.round;
+ const val=$("manualLock").value;
+ if(!val){$("lockStatus").textContent="Pick a date and time first.";return}
+ try{
+   state=await api("POST",{action:"setLock",matchday,iso:new Date(val).toISOString(),source:"manual"});
+   render();
+ }catch(e){$("lockStatus").textContent=e.message}
+});
+$("clearLock").addEventListener("click",async()=>{
+ try{state=await api("POST",{action:"clearLock"});render()}catch(e){$("lockStatus").textContent=e.message}
+});
+$("shareStandingsBtn").addEventListener("click",()=>{
+ const alive=state.players.filter(p=>p.alive).map(p=>p.name).sort();
+ const eliminated=state.players.filter(p=>!p.alive).map(p=>p.name).sort();
+ let text=`Current standings — Round ${state.round}:\n\n`;
+ text+=`STILL ALIVE:\n${alive.join("\n")||"None"}\n\n`;
+ text+=`ELIMINATED:\n${eliminated.join("\n")||"None yet"}`;
+ text+=`\n\nhttps://last-maltoid-standing.vercel.app/`;
+ window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank");
+});
+$("resolve").addEventListener("click",async()=>{
+ const results={};document.querySelectorAll("#adminResults select").forEach(s=>results[s.dataset.player]=s.value);
+ const willWipeOut=Object.keys(results).length>0&&Object.values(results).every(r=>r!=="win");
+ let topUp=0;
+ if(willWipeOut){
+   const entered=await customPrompt("Everyone would be eliminated this round — no single winner. Enter the €amount to top up the pot (the current pot rolls over on top of this):");
+   if(entered===null) return;
+   topUp=Number(entered);
+   if(!Number.isFinite(topUp)||topUp<0){$("adminMsg").textContent="Enter a valid top-up amount.";return}
+ }
+ try{
+   state=await api("POST",{action:"resolve",results,topUp});
+   $("adminMsg").textContent=state.winner?`🏆 ${state.winner} wins €${state.pot}.`:willWipeOut?`Everyone was eliminated — round saved, all players reinstated, pot rolled over to €${state.pot}. Round ${state.round} is now open.`:`Round resolved. Round ${state.round} is now open.`;
+   render();
+ }catch(e){$("adminMsg").textContent=e.message}
+});
+$("homeButton").addEventListener("click",()=>{
+ me=null;isAdmin=false;
+ $("app").classList.add("hidden");$("login").classList.remove("hidden");
+ $("loginMsg").textContent="";renderLogin();window.scrollTo({top:0,behavior:"smooth"});
+});
+$("login").classList.remove("hidden");
+renderLogin();
+</script>
+</body>
+</html>
