@@ -199,24 +199,36 @@ async function fetchMatchdayKickoff(matchday){
   if(!earliest) throw new Error("Fixtures were found but had no dates. Set the lock time manually instead.");
   return earliest;
 }
-let fixturesLoaded=false;
-// Fetches and renders the current Premier League match week's fixtures from
-// ESPN's public scoreboard endpoint (same reliable, actively-updated source
-// used for standings elsewhere) — it determines "the current week" itself,
-// no matchday tracking needed. Fetched once per session, not on every
-// render, since kickoff times don't change mid-session.
+let lastFixturesKey=null;
+// Fetches and renders the fixtures for the round the app is actually
+// tracking, from ESPN's public scoreboard endpoint (same reliable,
+// actively-updated source used for standings elsewhere). Anchored to the
+// round lock's kickoff time (the first fixture of that match week) rather
+// than "today's date," so it stays in sync with the app's round even if
+// that round ever falls behind or ahead of the real calendar week. Falls
+// back to ESPN's own current-week detection if no lock is set yet. Keyed
+// by matchday/round so it only re-fetches when the tracked round changes.
 async function loadFixtures(){
- if(fixturesLoaded) return;
- fixturesLoaded=true;
+ const key=state.lock?.matchday!=null?`mw:${state.lock.matchday}`:`round:${state.round}`;
+ if(key===lastFixturesKey) return;
+ lastFixturesKey=key;
  const el=$("fixturesList");
  if(!el) return;
  el.textContent="Loading fixtures…";
  try{
-   const res=await fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard",{cache:"no-store"});
+   let url="https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard";
+   if(state.lock?.iso){
+     const start=new Date(state.lock.iso);
+     start.setUTCDate(start.getUTCDate()-1);
+     const end=new Date(start.getTime()+5*86400000);
+     const fmt=d=>`${d.getUTCFullYear()}${String(d.getUTCMonth()+1).padStart(2,"0")}${String(d.getUTCDate()).padStart(2,"0")}`;
+     url+=`?dates=${fmt(start)}-${fmt(end)}`;
+   }
+   const res=await fetch(url,{cache:"no-store"});
    if(!res.ok) throw new Error("Fixture data is currently unavailable.");
    const data=await res.json();
    const events=data.events||[];
-   if(!events.length){el.textContent="No fixtures found for the current match week.";return}
+   if(!events.length){el.textContent=state.lock?.matchday?`No fixtures found for match week ${state.lock.matchday}.`:"No fixtures found for the current match week.";return}
    const matches=events.map(ev=>{
      const comp=ev.competitions?.[0];
      const home=comp?.competitors?.find(c=>c.homeAway==="home")?.team?.displayName||"TBC";
@@ -227,7 +239,7 @@ async function loadFixtures(){
    el.innerHTML=matches.map(m=>`<div class="pick-row"><div>${esc(m.home)} vs ${esc(m.away)}</div><div class="small muted">${m.kickoff?m.kickoff.toLocaleString(undefined,{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):"TBC"}</div></div>`).join("");
  }catch(e){
    el.textContent=e.message||"Could not load fixtures.";
-   fixturesLoaded=false;
+   lastFixturesKey=null;
  }
 }
 function countdownParts(ms){
