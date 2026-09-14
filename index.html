@@ -237,6 +237,24 @@ async function api(method="GET",body=null){
    // for correcting a past win/wipeout that was saved before the
    // automatic reset existed, or any other one-off correction needed.
    state.teamsResetAtRound=state.round;
+ } else if(body.action==="refreshLastAnnouncement"){
+   // Rebuilds the "results ready to share" WhatsApp text for the most
+   // recently completed round using the current wording rules, for rounds
+   // that were resolved before a wording fix went live (that saved text
+   // doesn't regenerate itself — the share button just reopens it as-is).
+   const last=state.history?.[state.history.length-1];
+   if(!last) throw new Error("No completed rounds to refresh.");
+   const roundActive=last.results.map(x=>x.player).sort();
+   const eliminated=last.results.filter(x=>x.result!=="win").map(x=>x.player).sort();
+   const wasWipeout=eliminated.length>0&&eliminated.length===last.results.length;
+   const survivors=roundActive.filter(n=>!eliminated.includes(n));
+   let resultsText=`Round ${last.round} results:\n\n`;
+   resultsText+=eliminated.length?`ELIMINATED:\n${eliminated.join("\n")}\n\n`:"No eliminations this round!\n\n";
+   if(survivors.length===1&&!wasWipeout) resultsText+=`🏆 ${survivors[0]} wins €${state.pot}!`;
+   else if(wasWipeout) resultsText+=`Everyone was eliminated — no single winner. All players reinstated, pot rolls over to €${state.pot}.\n\nALIVE:\n${roundActive.join("\n")}`;
+   else resultsText+=`STILL ALIVE:\n${survivors.join("\n")}`;
+   resultsText+=`\n\nhttps://last-maltoid-standing.vercel.app/`;
+   state.lastResultsAnnouncement={round:last.round,text:resultsText};
  } else if(body.action==="resolve"){
    const active=state.players.filter(p=>p.alive);
    if(active.some(p=>!state.currentPicks?.[p.name])) throw new Error("Every active player must make a selection.");
@@ -385,7 +403,10 @@ function renderAdmin(){
  }
  if(state.lastResultsAnnouncement?.text){
    const waUrl2="https://wa.me/?text="+encodeURIComponent(state.lastResultsAnnouncement.text);
-   $("resultsAnnounceBanner").innerHTML=`<div class="notice" style="margin-top:10px">Round ${state.lastResultsAnnouncement.round} results are ready to share.<br><a href="${waUrl2}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px"><button type="button">Send Results to WhatsApp</button></a></div>`;
+   $("resultsAnnounceBanner").innerHTML=`<div class="notice" style="margin-top:10px">Round ${state.lastResultsAnnouncement.round} results are ready to share.<br><a href="${waUrl2}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px"><button type="button">Send Results to WhatsApp</button></a><button type="button" id="refreshAnnouncementBtn" class="secondary" style="margin-top:8px">Refresh wording</button></div>`;
+   $("refreshAnnouncementBtn").addEventListener("click",async()=>{
+     try{state=await api("POST",{action:"refreshLastAnnouncement"});render()}catch(e){$("adminMsg").textContent=e.message}
+   });
  } else {
    $("resultsAnnounceBanner").innerHTML="";
  }
