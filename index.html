@@ -224,7 +224,8 @@ async function api(method="GET",body=null){
    const p=state.players.find(x=>x.name.toLowerCase()===String(body.player).toLowerCase());
    if(!p||!p.alive) throw new Error("Player is not active.");
    if(!TEAMS.includes(body.team)) throw new Error("Invalid Premier League team.");
-   if(p.history.some(h=>h.team===body.team)) throw new Error("You have already used that team.");
+   const resetAt=typeof state.teamsResetAtRound==="number"?state.teamsResetAtRound:0;
+   if(p.history.some(h=>h.round>resetAt&&h.team===body.team)) throw new Error("You have already used that team.");
    state.currentPicks=state.currentPicks||{}; state.currentPicks[p.name]=body.team;
  } else if(body.action==="setLock"){
    state.lock={matchday:body.matchday,iso:body.iso,source:body.source};
@@ -241,15 +242,21 @@ async function api(method="GET",body=null){
    let wipedOut=false;
    const alive=state.players.filter(p=>p.alive);
    if(alive.length===1){
+     // A single winner — team-selection history stays visible for the
+     // record, but the reuse restriction lifts going forward.
      state.winner=alive[0].name;
+     state.teamsResetAtRound=resolvedRound;
    } else if(!alive.length){
      // Full wipeout, no single winner — the round still counts in history
-     // (above), but everyone is reinstated and the pot rolls over plus a
-     // top-up the admin enters at resolve time.
+     // (above), but everyone is reinstated, the pot rolls over plus a
+     // top-up the admin enters at resolve time, and the team-reuse
+     // restriction lifts going forward (past picks still show in the
+     // tables, they just no longer block re-picking that team).
      const topUp=Number(body.topUp);
      if(!Number.isFinite(topUp)||topUp<0) throw new Error("Enter a valid pot top-up amount to save this round.");
      state.players.forEach(p=>p.alive=true);
      state.pot=(typeof state.pot==="number"?state.pot:180)+topUp;
+     state.teamsResetAtRound=resolvedRound;
      state.round++;
      wipedOut=true;
    } else {
@@ -342,7 +349,8 @@ function render(){
      $("savePick").classList.add("hidden");
    }
    else{
-     const used=p.history.map(h=>h.team);
+     const resetAt=typeof state.teamsResetAtRound==="number"?state.teamsResetAtRound:0;
+     const used=p.history.filter(h=>h.round>resetAt).map(h=>h.team);
      const existing=state.currentPicks?.[p.name]||"";
      $("pickArea").innerHTML=`<label for="team" class="small muted">Choose one team. Teams you have already used are removed.<br><strong>SELECTIONS STAY HIDDEN FROM OTHER PLAYERS UNTIL THE ROUND LOCKS</strong></label><select id="team" style="width:100%;margin-top:6px"><option value="">Select team</option>${TEAMS.filter(t=>!used.includes(t)).map(t=>`<option value="${esc(t)}" ${t===existing?"selected":""}>${esc(t)}</option>`).join("")}</select>`;
      $("savePick").classList.remove("hidden");
