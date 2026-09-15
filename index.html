@@ -376,6 +376,7 @@ async function api(method="GET",body=null){
 async function renderLogin(){
  try{
    const loginState=await api("GET");
+   $("potLabel").textContent="€"+(typeof loginState.pot==="number"?loginState.pot:180)+" pot";
    $("playerChoices").innerHTML=PLAYERS.map(n=>{
      const player=loginState.players.find(p=>p.name.toLowerCase()===n.toLowerCase());
      const eliminated=player&&!player.alive;
