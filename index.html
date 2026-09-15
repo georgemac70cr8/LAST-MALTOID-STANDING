@@ -70,6 +70,7 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-ov
 
 <button type="button" id="shareStandingsBtn" class="secondary" style="margin-bottom:15px">Send Standings to WhatsApp</button>
 <button type="button" id="resetTeamsBtn" class="secondary" style="margin-bottom:15px">Reset team selections (make all 20 teams available again)</button>
+<button type="button" id="setPotBtn" class="secondary" style="margin-bottom:15px">Set pot amount</button>
 
 <div class="card" style="margin:0 0 15px;padding:16px">
 <h2 style="font-size:18px;margin-bottom:8px">Round lock</h2>
@@ -245,7 +246,7 @@ async function loadFixtures(){
      if(!g){g={key:gkey,kickoff:m.kickoff,fixtures:[]};groups.push(g)}
      g.fixtures.push(m);
    }
-   const tzNote=tz?`<div class="small muted" style="margin-bottom:8px">Times shown in Central Time.</div>`:"";
+   const tzNote=tz?`<div class="small muted" style="margin-bottom:8px">Times shown in Central Time</div>`:"";
    el.innerHTML=tzNote+groups.map(g=>{
      const day=g.kickoff?g.kickoff.toLocaleString(undefined,{weekday:"short",day:"numeric",month:"short",timeZone:tz}):"";
      const time=g.kickoff?g.kickoff.toLocaleString(undefined,{hour:"2-digit",minute:"2-digit",timeZone:tz}):"TBC";
@@ -300,6 +301,14 @@ async function api(method="GET",body=null){
    // for correcting a past win/wipeout that was saved before the
    // automatic reset existed, or any other one-off correction needed.
    state.teamsResetAtRound=state.round;
+ } else if(body.action==="setPot"){
+   // Manual admin override: set the pot to a specific amount directly —
+   // for adding extra players mid-season, correcting a mistake, etc.
+   // Everywhere the pot is displayed reads from this same state.pot value,
+   // so it stays consistent across the app the moment this is saved.
+   const amount=Number(body.amount);
+   if(!Number.isFinite(amount)||amount<0) throw new Error("Enter a valid pot amount.");
+   state.pot=amount;
  } else if(body.action==="refreshLastAnnouncement"){
    // Rebuilds the "results ready to share" WhatsApp text for the most
    // recently completed round using the current wording rules, for rounds
@@ -533,6 +542,11 @@ $("clearLock").addEventListener("click",async()=>{
 $("resetTeamsBtn").addEventListener("click",async()=>{
  if(!confirm("This makes all 20 teams available again for every player, including teams already used in past rounds. Continue?")) return;
  try{state=await api("POST",{action:"resetTeams"});$("adminMsg").textContent="Team selections reset — all 20 teams are now available to every player.";render()}catch(e){$("adminMsg").textContent=e.message}
+});
+$("setPotBtn").addEventListener("click",async()=>{
+ const entered=await customPrompt(`Enter the new pot amount in €. Current pot is €${typeof state.pot==="number"?state.pot:180}.`,{validate:v=>Number.isFinite(Number(v))&&Number(v)>=0?null:"Enter a valid, non-negative number."});
+ if(entered===null) return;
+ try{state=await api("POST",{action:"setPot",amount:Number(entered)});$("adminMsg").textContent=`Pot set to €${state.pot}.`;render()}catch(e){$("adminMsg").textContent=e.message}
 });
 $("shareStandingsBtn").addEventListener("click",()=>{
  const alive=state.players.filter(p=>p.alive).map(p=>p.name).sort();
