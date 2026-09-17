@@ -71,6 +71,7 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-ov
 <button type="button" id="shareStandingsBtn" class="secondary" style="margin-bottom:15px">Send Standings to WhatsApp</button>
 <button type="button" id="resetTeamsBtn" class="secondary" style="margin-bottom:15px">Reset team selections (make all 20 teams available again)</button>
 <button type="button" id="setPotBtn" class="secondary" style="margin-bottom:15px">Set pot amount</button>
+<button type="button" id="removePlayerBtn" class="secondary" style="margin-bottom:15px">Remove a player from the game</button>
 
 <div class="card" style="margin:0 0 15px;padding:16px">
 <h2 style="font-size:18px;margin-bottom:8px">Round lock</h2>
@@ -117,7 +118,7 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-ov
 </div>
 
 <script>
-const PLAYERS=["DAMO","DAVE","GEORGE","JOYCEY","MARK","MAU","MURPH","RYAN","STEVE"];
+const PLAYERS=["DAVE","GEORGE","JOYCEY","MARK","MURPH","RYAN","STEVE"];
 const TEAMS=["AFC Bournemouth","Arsenal","Aston Villa","Brentford","Brighton & Hove Albion","Chelsea","Coventry City","Crystal Palace","Everton","Fulham","Hull City","Ipswich Town","Leeds United","Liverpool","Manchester City","Manchester United","Newcastle United","Nottingham Forest","Sunderland","Tottenham Hotspur"];
 const SUPABASE_URL="https://dyhmelgjcmjkerqtvaaa.supabase.co";
 const SUPABASE_ANON_KEY="sb_publishable_kqd-AN1O6Th0BpsFS_n2dw_OMkU5p9O";
@@ -322,6 +323,17 @@ async function api(method="GET",body=null){
    const amount=Number(body.amount);
    if(!Number.isFinite(amount)||amount<0) throw new Error("Enter a valid pot amount.");
    state.pot=amount;
+ } else if(body.action==="removePlayer"){
+   // Removes a player from the game entirely — for someone dropping out.
+   // They disappear from Standings, admin's pick-entry list, and future
+   // resolves; their existing round history stays in the shared round
+   // history/results log for the record, it just no longer follows them
+   // individually since they're gone from state.players.
+   const target=String(body.player||"").toLowerCase();
+   const before=state.players.length;
+   state.players=state.players.filter(p=>p.name.toLowerCase()!==target);
+   if(state.players.length===before) throw new Error("Player not found.");
+   if(state.currentPicks) delete state.currentPicks[body.player];
  } else if(body.action==="refreshLastAnnouncement"){
    // Rebuilds the "results ready to share" WhatsApp text for the most
    // recently completed round using the current wording rules, for rounds
@@ -561,6 +573,14 @@ $("setPotBtn").addEventListener("click",async()=>{
  const entered=await customPrompt(`Enter the new pot amount in €. Current pot is €${typeof state.pot==="number"?state.pot:180}.`,{validate:v=>Number.isFinite(Number(v))&&Number(v)>=0?null:"Enter a valid, non-negative number."});
  if(entered===null) return;
  try{state=await api("POST",{action:"setPot",amount:Number(entered)});$("adminMsg").textContent=`Pot set to €${state.pot}.`;render()}catch(e){$("adminMsg").textContent=e.message}
+});
+$("removePlayerBtn").addEventListener("click",async()=>{
+ const names=state.players.map(p=>p.name).join(", ");
+ const entered=await customPrompt(`Type the exact name of the player to remove from the game. Current players: ${names}.`,{validate:v=>state.players.some(p=>p.name.toLowerCase()===v.trim().toLowerCase())?null:"That name doesn't match a current player."});
+ if(entered===null) return;
+ const target=state.players.find(p=>p.name.toLowerCase()===entered.trim().toLowerCase());
+ if(!confirm(`Remove ${target.name} from the game permanently? They'll no longer appear in Standings or picks. Their past round results stay in the Round history log for the record.`)) return;
+ try{state=await api("POST",{action:"removePlayer",player:target.name});$("adminMsg").textContent=`${target.name} removed from the game.`;render()}catch(e){$("adminMsg").textContent=e.message}
 });
 $("shareStandingsBtn").addEventListener("click",()=>{
  const alive=state.players.filter(p=>p.alive).map(p=>p.name).sort();
