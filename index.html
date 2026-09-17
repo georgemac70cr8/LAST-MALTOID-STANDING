@@ -219,25 +219,30 @@ async function loadFixtures(){
  el.textContent="Loading fixtures…";
  try{
    const base="https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard";
-   let url=base;
+   const fmt=d=>`${d.getUTCFullYear()}${String(d.getUTCMonth()+1).padStart(2,"0")}${String(d.getUTCDate()).padStart(2,"0")}`;
+   let days;
    if(state.lock?.iso){
      const start=new Date(state.lock.iso);
      start.setUTCDate(start.getUTCDate()-1);
-     const end=new Date(start.getTime()+5*86400000);
-     const fmt=d=>`${d.getUTCFullYear()}${String(d.getUTCMonth()+1).padStart(2,"0")}${String(d.getUTCDate()).padStart(2,"0")}`;
-     url+=`?dates=${fmt(start)}-${fmt(end)}`;
+     days=Array.from({length:6},(_,i)=>{const d=new Date(start.getTime()+i*86400000);return fmt(d)});
+   } else {
+     const today=new Date();
+     days=Array.from({length:6},(_,i)=>{const d=new Date(today.getTime()+i*86400000);return fmt(d)});
    }
-   let res=await fetch(url,{cache:"no-store"});
-   if(!res.ok&&url!==base){
-     // The date-scoped request failed (this is an unofficial ESPN endpoint —
-     // not every parameter is guaranteed to behave the same for soccer as
-     // for other sports). Fall back to ESPN's own "current week" detection
-     // rather than showing an error.
-     res=await fetch(base,{cache:"no-store"});
+   // Query each day individually rather than trusting a multi-day "dates"
+   // range — this is an unofficial, undocumented ESPN endpoint, and a
+   // single explicit date is the one format reliably confirmed to work for
+   // it; a range or no date at all can silently fall back to "today only".
+   const results=await Promise.all(days.map(d=>fetch(`${base}?dates=${d}&limit=200`,{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null)));
+   const seen=new Set();
+   const events=[];
+   for(const data of results){
+     for(const ev of (data?.events||[])){
+       if(ev?.id&&seen.has(ev.id)) continue;
+       if(ev?.id) seen.add(ev.id);
+       events.push(ev);
+     }
    }
-   if(!res.ok) throw new Error("Fixture data is currently unavailable.");
-   const data=await res.json();
-   const events=data.events||[];
    if(!events.length){el.textContent=state.lock?.matchday?`No fixtures found for match week ${state.lock.matchday}.`:"No fixtures found for the current match week.";return}
    const matches=events.map(ev=>{
      const comp=ev.competitions?.[0];
