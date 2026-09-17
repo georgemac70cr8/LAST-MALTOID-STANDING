@@ -263,7 +263,7 @@ async function loadFixtures(){
    el.innerHTML=tzNote+groups.map(g=>{
      const day=g.kickoff?g.kickoff.toLocaleString(undefined,{weekday:"short",day:"numeric",month:"short",timeZone:tz}):"";
      const time=g.kickoff?g.kickoff.toLocaleString(undefined,{hour:"2-digit",minute:"2-digit",timeZone:tz}):"TBC";
-     const fixturesHtml=g.fixtures.map(m=>`${esc(m.home)} vs ${esc(m.away)}`).join(" &nbsp;·&nbsp; ");
+     const fixturesHtml=g.fixtures.map(m=>`<div>${esc(m.home)} vs ${esc(m.away)}</div>`).join("");
      return `<div class="fixture-row"><div class="fixture-time">${day}<br>${time}</div><div class="fixture-teams">${fixturesHtml}</div></div>`;
    }).join("");
  }catch(e){
