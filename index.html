@@ -218,7 +218,8 @@ async function loadFixtures(){
  if(!el) return;
  el.textContent="Loading fixtures…";
  try{
-   let url="https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard";
+   const base="https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard";
+   let url=base;
    if(state.lock?.iso){
      const start=new Date(state.lock.iso);
      start.setUTCDate(start.getUTCDate()-1);
@@ -226,7 +227,14 @@ async function loadFixtures(){
      const fmt=d=>`${d.getUTCFullYear()}${String(d.getUTCMonth()+1).padStart(2,"0")}${String(d.getUTCDate()).padStart(2,"0")}`;
      url+=`?dates=${fmt(start)}-${fmt(end)}`;
    }
-   const res=await fetch(url,{cache:"no-store"});
+   let res=await fetch(url,{cache:"no-store"});
+   if(!res.ok&&url!==base){
+     // The date-scoped request failed (this is an unofficial ESPN endpoint —
+     // not every parameter is guaranteed to behave the same for soccer as
+     // for other sports). Fall back to ESPN's own "current week" detection
+     // rather than showing an error.
+     res=await fetch(base,{cache:"no-store"});
+   }
    if(!res.ok) throw new Error("Fixture data is currently unavailable.");
    const data=await res.json();
    const events=data.events||[];
