@@ -14,7 +14,7 @@
 .card{background:linear-gradient(135deg,rgba(28,43,41,.88),rgba(13,23,29,.91));border:1px solid rgba(213,239,220,.13);border-radius:18px;padding:22px;margin:15px 0;box-shadow:0 18px 44px rgba(0,0,0,.22);backdrop-filter:blur(12px)}
 h1,h2{font-family:"Space Grotesk",sans-serif;letter-spacing:-.04em}h1{margin:0 0 6px;font-size:44px;line-height:.95;font-weight:700;color:#c8f56a}h2{margin-top:0;font-size:23px}.muted{color:#a7b4ad}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:rgba(213,239,220,.10);border:1px solid rgba(213,239,220,.10);border-radius:12px;overflow:hidden}.grid>div{padding:14px 15px;background:rgba(5,13,13,.24)}.grid strong{font-family:"Space Grotesk",sans-serif;font-size:22px;color:#fff}
 button,select{min-height:48px;border-radius:10px;border:1px solid rgba(213,239,220,.18);padding:10px 13px;font:inherit;font-size:15px}button{cursor:pointer;font-weight:700;letter-spacing:.01em;background:#c8f56a;color:#0a1612;border:0;width:100%;box-shadow:0 7px 18px rgba(200,245,106,.16);transition:transform .16s ease,box-shadow .16s ease,background .16s ease}button:hover{background:#d7ff89;transform:translateY(-1px);box-shadow:0 10px 24px rgba(200,245,106,.24)}.secondary{background:rgba(225,240,234,.1);color:#eff6f1;border:1px solid rgba(225,240,234,.2);box-shadow:none}.secondary:hover{background:rgba(225,240,234,.17)}select{width:100%;color:#eff6f1;background:#10211f}select option{background:#10211f;color:#eff6f1}
-table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid rgba(213,239,220,.11)}th{font-size:11px;color:#9caea4;letter-spacing:.09em;text-transform:uppercase}tr:last-child td{border-bottom:0}.alive{color:#c8f56a;font-weight:800}.out{color:#ff8c86;font-weight:800}.pick-row{display:grid;grid-template-columns:145px 1fr;gap:12px;align-items:center;margin:9px 0}
+table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x;scrollbar-width:none;-ms-overflow-style:none}.table-wrap::-webkit-scrollbar{display:none}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid rgba(213,239,220,.11)}th{font-size:11px;color:#9caea4;letter-spacing:.09em;text-transform:uppercase}tr:last-child td{border-bottom:0}.alive{color:#c8f56a;font-weight:800}.out{color:#ff8c86;font-weight:800}.pick-row{display:grid;grid-template-columns:145px 1fr;gap:12px;align-items:center;margin:9px 0}
 .fixture-row{display:grid;grid-template-columns:92px 1fr;gap:10px;align-items:start;padding:7px 0;border-bottom:1px solid rgba(213,239,220,.08)}.fixture-row:last-child{border-bottom:0}.fixture-time{font-size:11px;color:#9caea4;line-height:1.35;padding-top:2px}.fixture-teams{font-size:14px;line-height:1.6}
 .notice{padding:13px;border-radius:10px;background:rgba(132,186,255,.10);border:1px solid rgba(132,186,255,.23);color:#d9e9ff}.winner{font-family:"Space Grotesk",sans-serif;font-size:25px;font-weight:700;color:#c8f56a}
 .countdown-tiles{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.countdown-tile{background:rgba(200,245,106,.08);border:1px solid rgba(200,245,106,.25);border-radius:10px;padding:10px 14px;text-align:center;min-width:56px}.countdown-num{font-family:"Space Grotesk",sans-serif;font-size:22px;font-weight:700;color:#c8f56a;line-height:1}.countdown-label{font-size:10px;letter-spacing:.08em;color:#9caea4;text-transform:uppercase;margin-top:4px}.countdown-caption{text-align:center;font-size:11px;color:#7f8b85;margin:10px 0 0}
@@ -94,6 +94,8 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-ov
 <p class="muted">Enter the actual result for every active player's selected team, then resolve the round.</p>
 <div id="adminResults"></div>
 <button id="resolve" style="margin-top:10px">Resolve Round</button>
+<div id="undoResolveArea"></div>
+<button type="button" id="reopenRoundBtn" class="secondary" style="margin-top:10px">Reopen incomplete round (some games not played yet)</button>
 <p id="adminMsg" class="muted" aria-live="polite"></p>
 <div id="resultsAnnounceBanner"></div>
 </section>
@@ -358,6 +360,15 @@ async function api(method="GET",body=null){
    const results=active.map(p=>({player:p.name,team:state.currentPicks[p.name],result:body.results?.[p.name]}));
    if(results.some(x=>!["win","draw","loss"].includes(x.result))) throw new Error("Every active player needs a valid result.");
    const resolvedRound=state.round;
+   // Snapshot everything this resolve is about to change, so a mistaken or
+   // premature resolve can be fully undone with one click. Only ever holds
+   // the most recent resolve — taking a new one below overwrites it, so
+   // undo only ever reaches back one step.
+   state.lastResolveSnapshot={round:resolvedRound,data:JSON.parse(JSON.stringify({
+     players:state.players,round:state.round,winner:state.winner||null,pot:state.pot,
+     teamsResetAtRound:state.teamsResetAtRound||null,currentPicks:state.currentPicks,
+     lock:state.lock,history:state.history,lastResultsAnnouncement:state.lastResultsAnnouncement||null
+   }))};
    results.forEach(x=>{const p=state.players.find(p=>p.name===x.player);p.history.push({round:state.round,team:x.team,result:x.result});if(x.result!=="win")p.alive=false;});
    state.history.push({round:state.round,results}); state.currentPicks={}; state.lock=null;
    let wipedOut=false;
@@ -392,6 +403,51 @@ async function api(method="GET",body=null){
    else resultsText+=`STILL ALIVE:\n${stillAlive.join("\n")}`;
    resultsText+=`\n\nhttps://last-maltoid-standing.vercel.app/`;
    state.lastResultsAnnouncement={round:resolvedRound,text:resultsText};
+ } else if(body.action==="undoLastResolve"){
+   const snap=state.lastResolveSnapshot;
+   if(!snap) throw new Error("There's no recent resolve to undo.");
+   state.players=snap.data.players;
+   state.round=snap.data.round;
+   state.winner=snap.data.winner;
+   state.pot=snap.data.pot;
+   state.teamsResetAtRound=snap.data.teamsResetAtRound;
+   state.currentPicks=snap.data.currentPicks;
+   state.lock=snap.data.lock;
+   state.history=snap.data.history;
+   state.lastResultsAnnouncement=snap.data.lastResultsAnnouncement;
+   delete state.lastResolveSnapshot;
+ } else if(body.action==="reopenRound"){
+   // Partial correction for a round resolved before every game had actually
+   // been played: reopens the named players back to a pending pick (their
+   // real pick is restored, their elimination from this round is undone,
+   // and the round number goes back to being active) while leaving every
+   // other player's already-correct, already-played result untouched.
+   const last=state.history[state.history.length-1];
+   if(!last) throw new Error("No completed round to fix.");
+   const reopenNames=(body.players||[]).map(n=>String(n).trim().toLowerCase());
+   if(!reopenNames.length) throw new Error("Select at least one player to reopen.");
+   const validNames=last.results.map(x=>x.player.toLowerCase());
+   const bad=reopenNames.filter(n=>!validNames.includes(n));
+   if(bad.length) throw new Error(`These players aren't part of round ${last.round}: ${bad.join(", ")}`);
+   const keptResults=[];
+   state.currentPicks=state.currentPicks||{};
+   last.results.forEach(x=>{
+     if(reopenNames.includes(x.player.toLowerCase())){
+       const p=state.players.find(p=>p.name===x.player);
+       if(p){
+         const idx=p.history.findIndex(h=>h.round===last.round);
+         if(idx!==-1) p.history.splice(idx,1);
+         p.alive=true;
+       }
+       state.currentPicks[x.player]=x.team;
+     } else {
+       keptResults.push(x);
+     }
+   });
+   last.results=keptResults;
+   state.round=last.round;
+   if(!keptResults.length) state.history.pop();
+   state.lock=null;
  } else throw new Error("Unknown action.");
  const r=await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.1`,{method:"PATCH",headers:{...headers,Prefer:"return=representation"},body:JSON.stringify({data:state})});
  const text=await r.text(); let j; try{j=text?JSON.parse(text):null}catch{throw new Error("Supabase returned a non-JSON response: "+text.slice(0,120));}
@@ -489,6 +545,13 @@ function render(){
 function renderAdmin(){
  const active=state.players.filter(p=>p.alive);
  $("adminResults").innerHTML=active.map(p=>`<div class="pick-row"><div><strong>${esc(p.name)}</strong><br><span class="small muted">${esc(state.currentPicks?.[p.name]||"NO PICK")}</span></div><select data-player="${esc(p.name)}"><option value="win">Win — survive</option><option value="draw">Draw — eliminate</option><option value="loss">Loss — eliminate</option></select></div>`).join("")||"<div class='notice'>No active players.</div>";
+ $("undoResolveArea").innerHTML=state.lastResolveSnapshot?`<div class="notice" style="margin-top:10px">Round ${state.lastResolveSnapshot.round} was just resolved.<br><button type="button" id="undoResolveBtn" class="secondary" style="margin-top:8px">Undo that resolve</button></div>`:"";
+ if(state.lastResolveSnapshot){
+   $("undoResolveBtn").addEventListener("click",async()=>{
+     if(!confirm(`Undo the resolve of round ${state.lastResolveSnapshot.round}? This restores every player's alive status, picks, pot, and round number to exactly how they were right before you resolved it.`)) return;
+     try{state=await api("POST",{action:"undoLastResolve"});$("adminMsg").textContent=`Round ${state.round} resolve undone — picks are open again.`;render()}catch(e){$("adminMsg").textContent=e.message}
+   });
+ }
  if(!$("lockMatchday").value) $("lockMatchday").value=state.round;
  if(state.lock?.iso){
    const when=new Date(state.lock.iso);
@@ -573,6 +636,22 @@ $("setPotBtn").addEventListener("click",async()=>{
  const entered=await customPrompt(`Enter the new pot amount in €. Current pot is €${typeof state.pot==="number"?state.pot:180}.`,{validate:v=>Number.isFinite(Number(v))&&Number(v)>=0?null:"Enter a valid, non-negative number."});
  if(entered===null) return;
  try{state=await api("POST",{action:"setPot",amount:Number(entered)});$("adminMsg").textContent=`Pot set to €${state.pot}.`;render()}catch(e){$("adminMsg").textContent=e.message}
+});
+$("reopenRoundBtn").addEventListener("click",async()=>{
+ const last=state.history?.[state.history.length-1];
+ if(!last){$("adminMsg").textContent="No completed round to fix.";return}
+ const summary=last.results.map(x=>`${x.player}: ${x.team} — ${x.result.toUpperCase()}`).join("\n");
+ const validNames=last.results.map(x=>x.player.toLowerCase());
+ const entered=await customPrompt(`Round ${last.round} results:\n\n${summary}\n\nType the names (comma-separated) of players whose game HASN'T actually been played yet — their result will be reverted to a pending pick. Everyone else's result stays final as entered.`,{validate:v=>{
+   const names=v.split(",").map(s=>s.trim().toLowerCase()).filter(Boolean);
+   if(!names.length) return "Enter at least one name.";
+   const bad=names.filter(n=>!validNames.includes(n));
+   return bad.length?`Not part of round ${last.round}: ${bad.join(", ")}`:null;
+ }});
+ if(entered===null) return;
+ const names=entered.split(",").map(s=>s.trim()).filter(Boolean);
+ if(!confirm(`Reopen ${names.join(", ")} for round ${last.round}? Their picks reopen as pending; round ${last.round} becomes active again. Everyone else's result stays final.`)) return;
+ try{state=await api("POST",{action:"reopenRound",players:names});$("adminMsg").textContent=`Round ${state.round} reopened for: ${names.join(", ")}.`;render()}catch(e){$("adminMsg").textContent=e.message}
 });
 $("removePlayerBtn").addEventListener("click",async()=>{
  const names=state.players.map(p=>p.name).join(", ");
