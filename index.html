@@ -308,6 +308,17 @@ async function api(method="GET",body=null){
    const resetAt=typeof state.teamsResetAtRound==="number"?state.teamsResetAtRound:0;
    if(p.history.some(h=>h.round>resetAt&&h.team===body.team)) throw new Error("You have already used that team.");
    state.currentPicks=state.currentPicks||{}; state.currentPicks[p.name]=body.team;
+ } else if(body.action==="adminSetPick"){
+   // Admin override for entering a pick on a player's behalf — e.g. someone
+   // told the admin their team before the lock but never saved it in the app.
+   // Skips only the round-lock check; still requires an active player, a real
+   // Premier League team, and respects the no-reusing-teams rule.
+   const p=state.players.find(x=>x.name.toLowerCase()===String(body.player).toLowerCase());
+   if(!p||!p.alive) throw new Error("Player is not active.");
+   if(!TEAMS.includes(body.team)) throw new Error("Invalid Premier League team.");
+   const resetAt=typeof state.teamsResetAtRound==="number"?state.teamsResetAtRound:0;
+   if(p.history.some(h=>h.round>resetAt&&h.team===body.team)) throw new Error(`${p.name} has already used ${body.team}.`);
+   state.currentPicks=state.currentPicks||{}; state.currentPicks[p.name]=body.team;
  } else if(body.action==="setLock"){
    state.lock={matchday:body.matchday,iso:body.iso,source:body.source};
  } else if(body.action==="clearLock"){
@@ -544,7 +555,19 @@ function render(){
 }
 function renderAdmin(){
  const active=state.players.filter(p=>p.alive);
- $("adminResults").innerHTML=active.map(p=>`<div class="pick-row"><div><strong>${esc(p.name)}</strong><br><span class="small muted">${esc(state.currentPicks?.[p.name]||"NO PICK")}</span></div><select data-player="${esc(p.name)}"><option value="win">Win — survive</option><option value="draw">Draw — eliminate</option><option value="loss">Loss — eliminate</option></select></div>`).join("")||"<div class='notice'>No active players.</div>";
+ $("adminResults").innerHTML=active.map(p=>`<div class="pick-row"><div><strong>${esc(p.name)}</strong><br><span class="small muted">${esc(state.currentPicks?.[p.name]||"NO PICK")}</span><br><button type="button" class="secondary set-pick-btn" data-setpick="${esc(p.name)}" style="min-height:32px;padding:4px 10px;font-size:12px;margin-top:4px;width:auto">${state.currentPicks?.[p.name]?"Change pick":"Set pick"}</button></div><select data-player="${esc(p.name)}"><option value="win">Win — survive</option><option value="draw">Draw — eliminate</option><option value="loss">Loss — eliminate</option></select></div>`).join("")||"<div class='notice'>No active players.</div>";
+ document.querySelectorAll("[data-setpick]").forEach(btn=>btn.addEventListener("click",async()=>{
+   const name=btn.dataset.setpick;
+   const p=state.players.find(x=>x.name===name);
+   if(!p) return;
+   const resetAt=typeof state.teamsResetAtRound==="number"?state.teamsResetAtRound:0;
+   const used=p.history.filter(h=>h.round>resetAt).map(h=>h.team);
+   const available=TEAMS.filter(t=>!used.includes(t));
+   const entered=await customPrompt(`Type the team ${name} chose for round ${state.round}. Available: ${available.join(", ")}.`,{validate:v=>available.some(t=>t.toLowerCase()===v.trim().toLowerCase())?null:`That isn't one of ${name}'s available teams.`});
+   if(entered===null) return;
+   const team=available.find(t=>t.toLowerCase()===entered.trim().toLowerCase());
+   try{state=await api("POST",{action:"adminSetPick",player:name,team});$("adminMsg").textContent=`${name}'s pick set to ${team}.`;render()}catch(e){$("adminMsg").textContent=e.message}
+ }));
  $("undoResolveArea").innerHTML=state.lastResolveSnapshot?`<div class="notice" style="margin-top:10px">Round ${state.lastResolveSnapshot.round} was just resolved.<br><button type="button" id="undoResolveBtn" class="secondary" style="margin-top:8px">Undo that resolve</button></div>`:"";
  if(state.lastResolveSnapshot){
    $("undoResolveBtn").addEventListener("click",async()=>{
