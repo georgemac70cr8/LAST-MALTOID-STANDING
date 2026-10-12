@@ -71,7 +71,7 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-ov
 <button type="button" id="shareStandingsBtn" class="secondary" style="margin-bottom:15px">Send Standings to WhatsApp</button>
 <button type="button" id="resetTeamsBtn" class="secondary" style="margin-bottom:15px">Reset team selections (make all 20 teams available again)</button>
 <button type="button" id="setPotBtn" class="secondary" style="margin-bottom:15px">Set pot amount</button>
-<button type="button" id="removePlayerBtn" class="secondary" style="margin-bottom:15px">Remove a player from the game</button>
+<button type="button" id="removePlayerBtn" class="secondary" style="margin-bottom:15px">Add or remove a player</button>
 
 <div class="card" style="margin:0 0 15px;padding:16px">
 <h2 style="font-size:18px;margin-bottom:8px">Round lock</h2>
@@ -120,7 +120,6 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-ov
 </div>
 
 <script>
-const PLAYERS=["DAVE","GEORGE","JOYCEY","MARK","MURPH","RYAN","STEVE"];
 const TEAMS=["AFC Bournemouth","Arsenal","Aston Villa","Brentford","Brighton & Hove Albion","Chelsea","Coventry City","Crystal Palace","Everton","Fulham","Hull City","Ipswich Town","Leeds United","Liverpool","Manchester City","Manchester United","Newcastle United","Nottingham Forest","Sunderland","Tottenham Hotspur"];
 const SUPABASE_URL="https://dyhmelgjcmjkerqtvaaa.supabase.co";
 const SUPABASE_ANON_KEY="sb_publishable_kqd-AN1O6Th0BpsFS_n2dw_OMkU5p9O";
@@ -336,6 +335,16 @@ async function api(method="GET",body=null){
    const amount=Number(body.amount);
    if(!Number.isFinite(amount)||amount<0) throw new Error("Enter a valid pot amount.");
    state.pot=amount;
+ } else if(body.action==="addPlayer"){
+   // Adds a new player to the game, alive and with a clean pick history, so
+   // they appear in Standings, on the login screen, and in the admin results
+   // list straight away. They set their own PIN the first time they log in.
+   if(state.winner) throw new Error("The game has finished, so a player can't be added.");
+   const name=String(body.player||"").trim().toUpperCase();
+   if(!name) throw new Error("Enter a name for the new player.");
+   if(name.length>20) throw new Error("Names can be at most 20 characters.");
+   if(state.players.some(p=>p.name.toLowerCase()===name.toLowerCase())) throw new Error(`${name} is already in the game.`);
+   state.players.push({name,alive:true,history:[]});
  } else if(body.action==="removePlayer"){
    // Removes a player from the game entirely — for someone dropping out.
    // They disappear from Standings, admin's pick-entry list, and future
@@ -469,10 +478,10 @@ async function renderLogin(){
  try{
    const loginState=await api("GET");
    $("potLabel").textContent="€"+(typeof loginState.pot==="number"?loginState.pot:180)+" pot";
-   $("playerChoices").innerHTML=PLAYERS.map(n=>{
-     const player=loginState.players.find(p=>p.name.toLowerCase()===n.toLowerCase());
-     const eliminated=player&&!player.alive;
-     return `<button type="button" class="player-button${eliminated?" eliminated-player":""}" data-name="${n}">${n}${eliminated?" · ELIMINATED":""}</button>`;
+   $("playerChoices").innerHTML=[...loginState.players].sort((a,b)=>a.name.localeCompare(b.name)).map(player=>{
+     const n=player.name;
+     const eliminated=!player.alive;
+     return `<button type="button" class="player-button${eliminated?" eliminated-player":""}" data-name="${esc(n)}">${esc(n)}${eliminated?" · ELIMINATED":""}</button>`;
    }).join("")+`<button type="button" id="adminButton" class="secondary" style="margin-top:12px">Administrator</button>`;
  }catch(e){$("loginMsg").textContent=e.message;return}
  document.querySelectorAll("[data-name]").forEach(b=>b.addEventListener("click",()=>handlePlayerLogin(b.dataset.name)));
@@ -678,11 +687,23 @@ $("reopenRoundBtn").addEventListener("click",async()=>{
 });
 $("removePlayerBtn").addEventListener("click",async()=>{
  const names=state.players.map(p=>p.name).join(", ");
- const entered=await customPrompt(`Type the exact name of the player to remove from the game. Current players: ${names}.`,{validate:v=>state.players.some(p=>p.name.toLowerCase()===v.trim().toLowerCase())?null:"That name doesn't match a current player."});
+ const entered=await customPrompt(`Type the name of an existing player to REMOVE them, or a new name to ADD them. Current players: ${names}.`,{validate:v=>{
+   const n=v.trim();
+   if(!n) return "Enter a name.";
+   if(n.length>20) return "Names can be at most 20 characters.";
+   return null;
+ }});
  if(entered===null) return;
- const target=state.players.find(p=>p.name.toLowerCase()===entered.trim().toLowerCase());
- if(!confirm(`Remove ${target.name} from the game permanently? They'll no longer appear in Standings or picks. Their past round results stay in the Round history log for the record.`)) return;
- try{state=await api("POST",{action:"removePlayer",player:target.name});$("adminMsg").textContent=`${target.name} removed from the game.`;render()}catch(e){$("adminMsg").textContent=e.message}
+ const typed=entered.trim();
+ const existing=state.players.find(p=>p.name.toLowerCase()===typed.toLowerCase());
+ if(existing){
+   if(!confirm(`Remove ${existing.name} from the game permanently? They'll no longer appear in Standings or picks. Their past round results stay in the Round history log for the record.`)) return;
+   try{state=await api("POST",{action:"removePlayer",player:existing.name});$("adminMsg").textContent=`${existing.name} removed from the game.`;render()}catch(e){$("adminMsg").textContent=e.message}
+ } else {
+   const newName=typed.toUpperCase();
+   if(!confirm(`"${newName}" isn't a current player. Add ${newName} as a new player? They join alive for round ${state.round} with every team available, and set their own PIN the first time they log in.`)) return;
+   try{state=await api("POST",{action:"addPlayer",player:newName});$("adminMsg").textContent=`${newName} added to the game. Their pick for round ${state.round} can be set with the "Set pick" button below.`;render()}catch(e){$("adminMsg").textContent=e.message}
+ }
 });
 $("shareStandingsBtn").addEventListener("click",()=>{
  const alive=state.players.filter(p=>p.alive).map(p=>p.name).sort();
