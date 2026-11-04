@@ -71,6 +71,7 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-ov
 <div id="newGameArea"></div>
 <button type="button" id="shareStandingsBtn" class="secondary" style="margin-bottom:15px">Send Standings to WhatsApp</button>
 <button type="button" id="resetTeamsBtn" class="secondary" style="margin-bottom:15px">Reset team selections (make all 20 teams available again; after a win, also starts the next game)</button>
+<button type="button" id="setRoundBtn" class="secondary" style="margin-bottom:15px">Set round number</button>
 <button type="button" id="setPotBtn" class="secondary" style="margin-bottom:15px">Set pot amount</button>
 <button type="button" id="removePlayerBtn" class="secondary" style="margin-bottom:15px">Add or remove a player</button>
 
@@ -354,10 +355,19 @@ async function api(method="GET",body=null){
    delete state.winner;
    state.pot=pot;
    state.teamsResetAtRound=finishedRound;
-   state.round=finishedRound+1;
+   const nr=Number(body.round);
+   state.round=Number.isInteger(nr)&&nr>finishedRound&&nr<=38?nr:finishedRound+1;
    state.currentPicks={};
    state.lock=null;
    delete state.lastResolveSnapshot;
+ } else if(body.action==="setRound"){
+   // Admin correction: the app's round number should match the real Premier League match week.
+   const r=Number(body.round);
+   const lastDone=state.history.length?Math.max(...state.history.map(h=>h.round)):0;
+   if(!Number.isInteger(r)||r<1||r>38) throw new Error("Enter a round number between 1 and 38.");
+   if(r<=lastDone) throw new Error(`Round ${lastDone} is already in the history, so the round must be higher than that.`);
+   if(Object.keys(state.currentPicks||{}).length) throw new Error("Picks have already been made for the current round. Clear them before changing the round number.");
+   state.round=r;
  } else if(body.action==="clearLock"){
    state.lock=null;
  } else if(body.action==="resetTeams"){
@@ -605,9 +615,14 @@ async function startNextGameFlow(){
      const entered=await customPrompt(`Enter the pot for the new game in €. ${state.players.length} players × €20 = €${suggested}.`,{validate:v=>String(v).trim()!==""&&Number.isFinite(Number(v))&&Number(v)>=0?null:"Enter a valid, non-negative number."});
      if(entered===null) return;
      const pot=Number(entered);
-     if(!confirm(`Start round ${state.round+1} with all ${state.players.length} players alive and a pot of €${pot}?`)) return;
+     const nextMd=await fetchNextUpcomingMatchday();
+     const dflt=nextMd?nextMd.matchday:state.round+1;
+     const rEntered=await customPrompt(`Which round/match week is this new game starting in? Next upcoming match week is ${dflt}. Type that number to confirm, or another one.`,{validate:v=>{const n=Number(v);return Number.isInteger(n)&&n>state.round&&n<=38?null:`Enter a number from ${state.round+1} to 38.`}});
+     if(rEntered===null) return;
+     const newRound=Number(rEntered);
+     if(!confirm(`Start round ${newRound} with all ${state.players.length} players alive and a pot of €${pot}?`)) return;
      try{
-       state=await api("POST",{action:"startNewGame",pot});
+       state=await api("POST",{action:"startNewGame",pot,round:newRound});
        $("lockMatchday").value=state.round;
        $("adminMsg").textContent=`New game started: round ${state.round}, pot €${state.pot}.`;
        render();
@@ -622,7 +637,7 @@ async function startNextGameFlow(){
 function renderAdmin(){
  const active=state.players.filter(p=>p.alive);
  if(state.winner){
-   $("newGameArea").innerHTML=`<div class="notice" style="margin-bottom:15px"><strong>${esc(state.winner)}</strong> won the game (round ${state.round}). Start the next game to reinstate everyone, set a new pot and open round ${state.round+1}.<br><button type="button" id="startNewGameBtn" style="margin-top:8px">Start next game (round ${state.round+1})</button></div>`;
+   $("newGameArea").innerHTML=`<div class="notice" style="margin-bottom:15px"><strong>${esc(state.winner)}</strong> won the game (round ${state.round}). Start the next game to reinstate everyone, set a new pot and open the next round.<br><button type="button" id="startNewGameBtn" style="margin-top:8px">Start next game</button></div>`;
    $("startNewGameBtn").addEventListener("click",startNextGameFlow);
  } else $("newGameArea").innerHTML="";
  $("adminResults").innerHTML=active.map(p=>`<div class="pick-row"><div><strong>${esc(p.name)}</strong><br><span class="small muted">${esc(state.currentPicks?.[p.name]||"NO PICK")}</span><br><button type="button" class="secondary set-pick-btn" data-setpick="${esc(p.name)}" style="min-height:32px;padding:4px 10px;font-size:12px;margin-top:4px;width:auto">${state.currentPicks?.[p.name]?"Change pick":"Set pick"}</button></div><select data-player="${esc(p.name)}"><option value="win">Win — survive</option><option value="draw">Draw — eliminate</option><option value="loss">Loss — eliminate</option></select></div>`).join("")||"<div class='notice'>No active players.</div>";
@@ -734,6 +749,16 @@ $("resetTeamsBtn").addEventListener("click",async()=>{
  if(state.winner){await startNextGameFlow();return}
  if(!confirm("This makes all 20 teams available again for every player, including teams already used in past rounds. Continue?")) return;
  try{state=await api("POST",{action:"resetTeams"});$("adminMsg").textContent="Team selections reset — all 20 teams are now available to every player.";render()}catch(e){$("adminMsg").textContent=e.message}
+});
+$("setRoundBtn").addEventListener("click",async()=>{
+ const entered=await customPrompt(`Enter the round number (match week) for the current round. It is round ${state.round} now.`,{validate:v=>{const n=Number(v);return Number.isInteger(n)&&n>=1&&n<=38?null:"Enter a whole number from 1 to 38."}});
+ if(entered===null) return;
+ try{
+   state=await api("POST",{action:"setRound",round:Number(entered)});
+   $("lockMatchday").value=state.round;
+   $("adminMsg").textContent=`Round number set to ${state.round}.`;
+   render();
+ }catch(e){$("adminMsg").textContent=e.message}
 });
 $("setPotBtn").addEventListener("click",async()=>{
  const entered=await customPrompt(`Enter the new pot amount in €. Current pot is €${typeof state.pot==="number"?state.pot:180}.`,{validate:v=>Number.isFinite(Number(v))&&Number(v)>=0?null:"Enter a valid, non-negative number."});
