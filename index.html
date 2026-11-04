@@ -68,8 +68,9 @@ table{width:100%;border-collapse:collapse}.table-wrap{overflow-x:auto;-webkit-ov
 <section id="adminView" class="card hidden">
 <h2>Administrator</h2>
 
+<div id="newGameArea"></div>
 <button type="button" id="shareStandingsBtn" class="secondary" style="margin-bottom:15px">Send Standings to WhatsApp</button>
-<button type="button" id="resetTeamsBtn" class="secondary" style="margin-bottom:15px">Reset team selections (make all 20 teams available again)</button>
+<button type="button" id="resetTeamsBtn" class="secondary" style="margin-bottom:15px">Reset team selections (make all 20 teams available again; after a win, also starts the next game)</button>
 <button type="button" id="setPotBtn" class="secondary" style="margin-bottom:15px">Set pot amount</button>
 <button type="button" id="removePlayerBtn" class="secondary" style="margin-bottom:15px">Add or remove a player</button>
 
@@ -203,6 +204,27 @@ async function fetchMatchdayKickoff(matchday){
   if(!earliest) throw new Error("Fixtures were found but had no dates. Set the lock time manually instead.");
   return earliest;
 }
+// Finds the next match week whose first kickoff is still in the future.
+async function fetchNextUpcomingMatchday(){
+  const url=`https://raw.githubusercontent.com/openfootball/football.json/master/${SEASON}/en.1.json`;
+  let res;
+  try{res=await fetch(url,{cache:"no-store"})}catch{return null}
+  if(!res.ok) return null;
+  const data=await res.json();
+  const firstKick={};
+  for(const mt of (data.matches||[])){
+    const m=/^Matchday (\d+)$/.exec(mt.round||"");
+    if(!m||!mt.date) continue;
+    const dt=ukTimeToUTC(mt.date,mt.time),n=Number(m[1]);
+    if(!firstKick[n]||dt<firstKick[n]) firstKick[n]=dt;
+  }
+  let best=null;
+  for(const n in firstKick){
+    if(firstKick[n].getTime()>Date.now()&&(!best||firstKick[n]<best.kickoff)) best={matchday:Number(n),kickoff:firstKick[n]};
+  }
+  return best;
+}
+function fmtKickoff(d){return d.toLocaleString(undefined,{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
 let lastFixturesKey=null;
 // Fetches and renders the fixtures for the round the app is actually
 // tracking, from ESPN's public scoreboard endpoint (same reliable,
@@ -320,6 +342,22 @@ async function api(method="GET",body=null){
    state.currentPicks=state.currentPicks||{}; state.currentPicks[p.name]=body.team;
  } else if(body.action==="setLock"){
    state.lock={matchday:body.matchday,iso:body.iso,source:body.source};
+ } else if(body.action==="startNewGame"){
+   // Murph-style finish: a single survivor ended the game (state.winner set,
+   // round not advanced). This starts a fresh game: everyone alive again,
+   // new pot, team-reuse lifted, next round number, no lock yet.
+   if(!state.winner) throw new Error("There's no finished game to start over from.");
+   const pot=Number(body.pot);
+   if(!Number.isFinite(pot)||pot<0) throw new Error("Enter a valid pot amount for the new game.");
+   const finishedRound=state.round;
+   state.players.forEach(p=>p.alive=true);
+   delete state.winner;
+   state.pot=pot;
+   state.teamsResetAtRound=finishedRound;
+   state.round=finishedRound+1;
+   state.currentPicks={};
+   state.lock=null;
+   delete state.lastResolveSnapshot;
  } else if(body.action==="clearLock"){
    state.lock=null;
  } else if(body.action==="resetTeams"){
@@ -562,8 +600,31 @@ function render(){
  if(isAdmin) renderAdmin();
  renderHistory();
 }
+async function startNextGameFlow(){
+     const suggested=state.players.length*20;
+     const entered=await customPrompt(`Enter the pot for the new game in €. ${state.players.length} players × €20 = €${suggested}.`,{validate:v=>String(v).trim()!==""&&Number.isFinite(Number(v))&&Number(v)>=0?null:"Enter a valid, non-negative number."});
+     if(entered===null) return;
+     const pot=Number(entered);
+     if(!confirm(`Start round ${state.round+1} with all ${state.players.length} players alive and a pot of €${pot}?`)) return;
+     try{
+       state=await api("POST",{action:"startNewGame",pot});
+       $("lockMatchday").value=state.round;
+       $("adminMsg").textContent=`New game started: round ${state.round}, pot €${state.pot}.`;
+       render();
+       const next=await fetchNextUpcomingMatchday();
+       if(next&&confirm(`Set the pick deadline now? Next upcoming match week is ${next.matchday}, first kickoff ${fmtKickoff(next.kickoff)}.`)){
+         state=await api("POST",{action:"setLock",matchday:next.matchday,iso:next.kickoff.toISOString(),source:"auto"});
+         $("lockMatchday").value=next.matchday;
+         render();
+       }
+     }catch(e){$("adminMsg").textContent=e.message}
+}
 function renderAdmin(){
  const active=state.players.filter(p=>p.alive);
+ if(state.winner){
+   $("newGameArea").innerHTML=`<div class="notice" style="margin-bottom:15px"><strong>${esc(state.winner)}</strong> won the game (round ${state.round}). Start the next game to reinstate everyone, set a new pot and open round ${state.round+1}.<br><button type="button" id="startNewGameBtn" style="margin-top:8px">Start next game (round ${state.round+1})</button></div>`;
+   $("startNewGameBtn").addEventListener("click",startNextGameFlow);
+ } else $("newGameArea").innerHTML="";
  $("adminResults").innerHTML=active.map(p=>`<div class="pick-row"><div><strong>${esc(p.name)}</strong><br><span class="small muted">${esc(state.currentPicks?.[p.name]||"NO PICK")}</span><br><button type="button" class="secondary set-pick-btn" data-setpick="${esc(p.name)}" style="min-height:32px;padding:4px 10px;font-size:12px;margin-top:4px;width:auto">${state.currentPicks?.[p.name]?"Change pick":"Set pick"}</button></div><select data-player="${esc(p.name)}"><option value="win">Win — survive</option><option value="draw">Draw — eliminate</option><option value="loss">Loss — eliminate</option></select></div>`).join("")||"<div class='notice'>No active players.</div>";
  document.querySelectorAll("[data-setpick]").forEach(btn=>btn.addEventListener("click",async()=>{
    const name=btn.dataset.setpick;
@@ -643,8 +704,17 @@ $("autoLock").addEventListener("click",async()=>{
  if(!matchday){$("lockStatus").textContent="Enter a match week number first.";return}
  $("lockStatus").textContent="Looking up kickoff times…";
  try{
-   const kickoff=await fetchMatchdayKickoff(matchday);
-   state=await api("POST",{action:"setLock",matchday,iso:kickoff.toISOString(),source:"auto"});
+   let md=matchday;
+   let kickoff=await fetchMatchdayKickoff(md);
+   if(kickoff.getTime()<=Date.now()){
+     const next=await fetchNextUpcomingMatchday();
+     if(!next){$("lockStatus").textContent=`Match week ${md} kicked off ${fmtKickoff(kickoff)}, which has already passed, and no later match week was found. Set the lock time manually instead.`;return}
+     if(!confirm(`Match week ${md} already kicked off (${fmtKickoff(kickoff)}). Use the next upcoming match week instead: match week ${next.matchday}, first kickoff ${fmtKickoff(next.kickoff)}?`)){
+       $("lockStatus").textContent="Lock not changed.";return;
+     }
+     md=next.matchday;kickoff=next.kickoff;$("lockMatchday").value=md;
+   }
+   state=await api("POST",{action:"setLock",matchday:md,iso:kickoff.toISOString(),source:"auto"});
    render();
  }catch(e){$("lockStatus").textContent=e.message}
 });
@@ -661,6 +731,7 @@ $("clearLock").addEventListener("click",async()=>{
  try{state=await api("POST",{action:"clearLock"});render()}catch(e){$("lockStatus").textContent=e.message}
 });
 $("resetTeamsBtn").addEventListener("click",async()=>{
+ if(state.winner){await startNextGameFlow();return}
  if(!confirm("This makes all 20 teams available again for every player, including teams already used in past rounds. Continue?")) return;
  try{state=await api("POST",{action:"resetTeams"});$("adminMsg").textContent="Team selections reset — all 20 teams are now available to every player.";render()}catch(e){$("adminMsg").textContent=e.message}
 });
